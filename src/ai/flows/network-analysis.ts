@@ -49,7 +49,7 @@ const getExchangeAssetNetworks = ai.defineTool(
       },
     };
 
-    const supportedNetworks = networksDb[asset]?.[exchange] || ['ERC20']; // Padrão para ERC20 se não encontrado
+    const supportedNetworks = networksDb[asset]?.[exchange] || []; // Padrão para lista vazia se não encontrado
 
     return {
       depositNetworks: supportedNetworks,
