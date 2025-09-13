@@ -13,7 +13,7 @@ import { getAssetsFromDB, addAssetToDB } from './manage-assets-db';
 
 
 const GetExchangeAssetsInputSchema = z.object({
-  exchange: z.enum(['MEXC', 'Bitmart', 'Gate.io']),
+  exchange: z.enum(['MEXC', 'Bitmart', 'Gate.io', 'Poloniex']),
 });
 export type GetExchangeAssetsInput = z.infer<
   typeof GetExchangeAssetsInputSchema
@@ -64,6 +64,7 @@ const getExchangeAssetsFlow = ai.defineFlow(
         MEXC: ['JASMY', 'PEPE', 'BTC', 'ETH', 'SOL', 'DOGE', 'SHIB', 'MATIC', 'AVAX', 'LINK'],
         Bitmart: ['JASMY', 'PEPE', 'BTC', 'ETH', 'SOL', 'DOGE', 'SHIB', 'TRX', 'LTC', 'XRP'],
         'Gate.io': ['JASMY', 'PEPE', 'BTC', 'ETH', 'SOL', 'ADA', 'DOT', 'XLM', 'BCH', 'FIL'],
+        Poloniex: ['JASMY', 'PEPE', 'BTC', 'ETH', 'SOL', 'USDC', 'TRX', 'DOGE', 'SHIB', 'LTC'],
     };
 
     const assetsToSave = simulatedAssetDb[input.exchange] || [];

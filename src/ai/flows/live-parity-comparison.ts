@@ -37,7 +37,7 @@ const getExchangeInfo = ai.defineTool(
       name: 'getExchangeInfo',
       description: 'Obtém informações sobre uma exchange, como suas taxas de negociação.',
       inputSchema: z.object({
-          exchange: z.string().describe('O nome da exchange (ex: MEXC, Bitmart, Gate.io).'),
+          exchange: z.string().describe('O nome da exchange (ex: MEXC, Bitmart, Gate.io, Poloniex).'),
       }),
       outputSchema: z.object({
           tradeFeePercent: z.number().describe('A taxa de negociação padrão em porcentagem (ex: 0.1).'),
@@ -49,6 +49,7 @@ const getExchangeInfo = ai.defineTool(
           'MEXC': 0.1,
           'Bitmart': 0.1,
           'Gate.io': 0.2,
+          'Poloniex': 0.14,
       };
       const fee = fees[exchange] || 0.1; // Padrão de 0.1% se não encontrada
       return { tradeFeePercent: fee };

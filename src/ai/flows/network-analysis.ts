@@ -16,7 +16,7 @@ const getExchangeAssetNetworks = ai.defineTool(
     name: 'getExchangeAssetNetworks',
     description: 'Obtém as redes de saque e depósito para um ativo específico em uma exchange.',
     inputSchema: z.object({
-      exchange: z.string().describe('O nome da exchange (ex: MEXC, Bitmart, Gate.io).'),
+      exchange: z.string().describe('O nome da exchange (ex: MEXC, Bitmart, Gate.io, Poloniex).'),
       asset: z.string().describe('O símbolo do ativo (ex: JASMY).'),
     }),
     outputSchema: z.object({
@@ -36,16 +36,19 @@ const getExchangeAssetNetworks = ai.defineTool(
         MEXC: ['ERC20', 'BEP20'],
         Bitmart: ['ERC20'],
         'Gate.io': ['ERC20', 'Polygon'],
+        Poloniex: ['ERC20'],
       },
       PEPE: {
         MEXC: ['ERC20', 'Arbitrum'],
         Bitmart: ['ERC20'],
         'Gate.io': ['ERC20', 'Arbitrum', 'Solana'],
+        Poloniex: ['ERC20'],
       },
       BTC: {
         MEXC: ['Bitcoin', 'Lightning', 'BEP20'],
         Bitmart: ['Bitcoin', 'BEP20', 'ERC20'],
          'Gate.io': ['Bitcoin', 'Lightning', 'BEP20'],
+         Poloniex: ['Bitcoin', 'TRC20'],
       },
     };
 

@@ -22,7 +22,7 @@ import { Switch } from "@/components/ui/switch";
 
 type DiagnosisStatus = 'positive' | 'negative' | 'neutral';
 
-const EXCHANGES = ["MEXC", "Bitmart", "Gate.io"];
+const EXCHANGES = ["MEXC", "Bitmart", "Gate.io", "Poloniex"];
 
 // Hook para persistir estado no localStorage de forma segura
 function usePersistentState<T>(key: string, defaultValue: T): [T, React.Dispatch<React.SetStateAction<T>>] {

@@ -10,10 +10,11 @@ import { ai } from '@/ai/genkit';
 import { getMexcPrice } from '@/services/mexc-service';
 import { getBitmartPrice } from '@/services/bitmart-service';
 import { getGateioPrice } from '@/services/gateio-service';
+import { getPoloniexPrice } from '@/services/poloniex-service';
 import { z } from 'zod';
 
 const GetMarketPriceInputSchema = z.object({
-  exchange: z.enum(['MEXC', 'Bitmart', 'Gate.io']),
+  exchange: z.enum(['MEXC', 'Bitmart', 'Gate.io', 'Poloniex']),
   asset: z.string().describe('O símbolo do ativo (ex: JASMY)'),
   counterpart: z.string().optional().default('USDT').describe('A contraparte (ex: USDT)'),
 });
@@ -62,6 +63,12 @@ const getMarketPriceFlow = ai.defineFlow(
         const gateioPair = `${cleanAsset}_${cleanCounterpart}`;
         const gateioResponse = await getGateioPrice(gateioPair);
         price = parseFloat(gateioResponse.last);
+        break;
+      case 'Poloniex':
+        // Poloniex espera o formato: JASMY_USDT
+        const poloniexPair = `${cleanAsset}_${cleanCounterpart}`;
+        const poloniexResponse = await getPoloniexPrice(poloniexPair);
+        price = parseFloat(poloniexResponse.price);
         break;
       default:
         throw new Error(`Exchange desconhecida: ${input.exchange}`);
