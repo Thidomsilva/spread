@@ -38,7 +38,11 @@ const getMarketPriceFlow = ai.defineFlow(
 
     let price = 0;
     const counterpart = input.counterpart ?? 'USDT';
-    const pair = `${input.asset.toUpperCase()}${counterpart.toUpperCase()}`;
+    
+    // Remove a barra e garante que a contraparte não seja duplicada.
+    const cleanAsset = input.asset.toUpperCase().replace(/\/.*/, '');
+    const pair = `${cleanAsset}${counterpart.toUpperCase()}`;
+
 
     switch (input.exchange) {
       case 'MEXC':
