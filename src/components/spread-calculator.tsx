@@ -17,11 +17,6 @@ const VIABILITY_THRESHOLD = 0.10;
 
 type ViabilityStatus = 'Viável' | 'Neutro' | 'Não viável' | 'Aguardando';
 
-interface ParityResult {
-  xprEquivalenteUsdtViaRede: number;
-  deltaRelativoPercentage: number;
-}
-
 export default function SpreadCalculator() {
   const [xprUsdtPrice, setXprUsdtPrice] = useState("");
   const [vaultaUsdtPrice, setVaultaUsdtPrice] = useState("");
@@ -29,9 +24,6 @@ export default function SpreadCalculator() {
   const [initialUsdt, setInitialUsdt] = useState("100");
   const [buyFee, setBuyFee] = useState("0");
   const [sellFee, setSellFee] = useState("0");
-
-  const [parityResult, setParityResult] = useState<ParityResult | null>(null);
-  const [isParityLoading, setIsParityLoading] = useState(false);
 
   const { toast } = useToast();
 
@@ -131,42 +123,6 @@ export default function SpreadCalculator() {
       error: null,
     };
   }, [xprUsdtPrice, vaultaUsdtPrice, xprToVaultaFactor, initialUsdt, buyFee, sellFee]);
-
-  useEffect(() => {
-    const pXprUsdt = parseFloat(xprUsdtPrice);
-    const pVaultaUsdt = parseFloat(vaultaUsdtPrice);
-    const pFactor = parseFloat(xprToVaultaFactor);
-
-    if (isNaN(pXprUsdt) || isNaN(pVaultaUsdt) || isNaN(pFactor) || pXprUsdt <= 0 || pVaultaUsdt <= 0 || pFactor <= 0) {
-        setParityResult(null);
-        return;
-    }
-
-    const handler = setTimeout(async () => {
-      setIsParityLoading(true);
-      try {
-        const xprEquivalenteUsdtViaRede = pVaultaUsdt * pFactor;
-        const deltaRelativoPercentage = ((xprEquivalenteUsdtViaRede - pXprUsdt) / pXprUsdt) * 100;
-
-        setParityResult({
-          xprEquivalenteUsdtViaRede,
-          deltaRelativoPercentage,
-        });
-
-      } catch (error) {
-        console.error("Parity calculation failed:", error);
-        toast({
-          variant: "destructive",
-          title: "Erro de Paridade",
-          description: "Não foi possível calcular a paridade da rede.",
-        });
-      } finally {
-        setIsParityLoading(false);
-      }
-    }, 500);
-
-    return () => clearTimeout(handler);
-  }, [xprUsdtPrice, vaultaUsdtPrice, xprToVaultaFactor, toast]);
 
   const ViabilityStatusDisplay = () => {
     if (!calculations || calculations.viability === 'Aguardando') {
@@ -283,35 +239,9 @@ export default function SpreadCalculator() {
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Paridade de Mercado</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {isParityLoading && <div className="flex items-center gap-2 text-muted-foreground"><Loader2 className="animate-spin w-4 h-4"/>Calculando...</div>}
-                {!isParityLoading && parityResult && (
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm">XPR Preço Equivalente (via VAULTA):</span>
-                      <strong className="text-base">${formatNumber(parityResult.xprEquivalenteUsdtViaRede, { minimumFractionDigits: 6 })}</strong>
-                    </div>
-                    <div className="flex justify-between items-center">
-                       <span className="text-sm">Delta Relativo:</span>
-                       <Badge variant={parityResult.deltaRelativoPercentage > 0 ? "default" : "destructive"} className={cn(parityResult.deltaRelativoPercentage > 0 && "bg-success text-success-foreground hover:bg-success/90")}>
-                        {parityResult.deltaRelativoPercentage > 0 ? <ArrowUp className="mr-1 h-3 w-3" /> : <ArrowDown className="mr-1 h-3 w-3" />}
-                        {formatNumber(parityResult.deltaRelativoPercentage, {maximumFractionDigits: 2})}%
-                       </Badge>
-                    </div>
-                  </div>
-                )}
-                 {!isParityLoading && !parityResult && <div className="text-sm text-muted-foreground">Insira os preços para ver a análise.</div>}
-              </CardContent>
-            </Card>
           </div>
         </div>
       </main>
     </TooltipProvider>
   );
 }
-
-    
