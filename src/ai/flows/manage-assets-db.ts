@@ -15,13 +15,13 @@ import { collection, getDocs, doc, setDoc, getDoc } from 'firebase/firestore';
 const GetAssetsInputSchema = z.object({
   exchange: z.string().describe('O nome da exchange (ex: MEXC).'),
 });
-export type GetAssetsInput = z.infer<typeof GetAssetsInputSchema>;
+type GetAssetsInput = z.infer<typeof GetAssetsInputSchema>;
 
 // Esquema de saída para buscar ativos
 const GetAssetsOutputSchema = z.object({
   assets: z.array(z.string()).describe('A lista de ativos conhecidos para a exchange.'),
 });
-export type GetAssetsOutput = z.infer<typeof GetAssetsOutputSchema>;
+type GetAssetsOutput = z.infer<typeof GetAssetsOutputSchema>;
 
 // Função para buscar ativos do banco de dados
 export async function getAssetsFromDB(
@@ -56,7 +56,7 @@ const AddAssetInputSchema = z.object({
   exchange: z.string().describe('O nome da exchange (ex: MEXC).'),
   asset: z.string().describe('O símbolo do ativo a ser adicionado (ex: BTC).'),
 });
-export type AddAssetInput = z.infer<typeof AddAssetInputSchema>;
+type AddAssetInput = z.infer<typeof AddAssetInputSchema>;
 
 
 // Função para adicionar um ativo ao banco de dados

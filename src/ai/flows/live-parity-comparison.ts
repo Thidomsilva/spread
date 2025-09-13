@@ -3,8 +3,6 @@
  * @fileOverview Um agente de IA para análise de paridade de mercado.
  *
  * - liveParityComparison - Uma função que busca e compara os preços dos ativos.
- * - LiveParityComparisonInput - O tipo de entrada para a função.
- * - LiveParityComparisonOutput - O tipo de retorno para a função.
  */
 
 import {ai} from '@/ai/genkit';
@@ -64,7 +62,7 @@ const LiveParityComparisonInputSchema = z.object({
   exchangeA: z.string().describe('A exchange onde o ativo A será negociado.'),
   exchangeB: z.string().describe('A exchange onde o ativo B será negociado.'),
 });
-export type LiveParityComparisonInput = z.infer<
+type LiveParityComparisonInput = z.infer<
   typeof LiveParityComparisonInputSchema
 >;
 
@@ -75,7 +73,7 @@ const LiveParityComparisonOutputSchema = z.object({
   feeA: z.number().describe('A taxa de negociação da Exchange A em porcentagem.'),
   feeB: z.number().describe('A taxa de negociação da Exchange B em porcentagem.'),
 });
-export type LiveParityComparisonOutput = z.infer<
+type LiveParityComparisonOutput = z.infer<
   typeof LiveParityComparisonOutputSchema
 >;
 

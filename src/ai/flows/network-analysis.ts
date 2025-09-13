@@ -3,8 +3,6 @@
  * @fileOverview Um agente de IA para analisar a compatibilidade de redes de criptomoedas entre exchanges.
  *
  * - networkAnalysis - Uma função que compara as redes de saque e depósito.
- * - NetworkAnalysisInput - O tipo de entrada para a função.
- * - NetworkAnalysisOutput - O tipo de retorno para a função.
  */
 
 import { ai } from '@/ai/genkit';
@@ -67,15 +65,15 @@ const NetworkAnalysisInputSchema = z.object({
   sourceExchange: z.string().describe('A exchange de origem (de onde o saque será feito).'),
   destinationExchange: z.string().describe('A exchange de destino (para onde o depósito será feito).'),
 });
-export type NetworkAnalysisInput = z.infer<typeof NetworkAnalysisInputSchema>;
+type NetworkAnalysisInput = z.infer<typeof NetworkAnalysisInputSchema>;
 
 // Esquema de saída para o fluxo
-export const NetworkAnalysisOutputSchema = z.object({
+const NetworkAnalysisOutputSchema = z.object({
   isCompatible: z.boolean().describe('Se existe pelo menos uma rede compatível entre as exchanges.'),
   commonNetworks: z.array(z.string()).describe('A lista de redes de transferência compatíveis em comum.'),
   reasoning: z.string().describe('Uma breve explicação sobre a compatibilidade ou incompatibilidade.'),
 });
-export type NetworkAnalysisOutput = z.infer<typeof NetworkAnalysisOutputSchema>;
+type NetworkAnalysisOutput = z.infer<typeof NetworkAnalysisOutputSchema>;
 
 
 // Função de invólucro que chama o fluxo

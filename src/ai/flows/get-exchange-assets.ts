@@ -3,8 +3,6 @@
  * @fileOverview Fluxo para buscar todos os ativos negociáveis de uma exchange.
  *
  * - getExchangeAssets - Uma função que busca os símbolos de ativos.
- * - GetExchangeAssetsInput - O tipo de entrada para a função.
- * - GetExchangeAssetsOutput - O tipo de retorno para a função.
  */
 
 import { ai } from '@/ai/genkit';
@@ -15,14 +13,14 @@ import { getAssetsFromDB, addAssetToDB } from './manage-assets-db';
 const GetExchangeAssetsInputSchema = z.object({
   exchange: z.enum(['MEXC', 'Bitmart', 'Gate.io', 'Poloniex']),
 });
-export type GetExchangeAssetsInput = z.infer<
+type GetExchangeAssetsInput = z.infer<
   typeof GetExchangeAssetsInputSchema
 >;
 
 const GetExchangeAssetsOutputSchema = z.object({
     assets: z.array(z.string()).describe('A lista de símbolos de ativos (ex: JASMY, PEPE, BTC).'),
 });
-export type GetExchangeAssetsOutput = z.infer<
+type GetExchangeAssetsOutput = z.infer<
     typeof GetExchangeAssetsOutputSchema
 >;
 

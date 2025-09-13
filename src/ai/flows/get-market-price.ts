@@ -3,7 +3,6 @@
  * @fileOverview Fluxo para buscar preços de mercado de exchanges.
  *
  * - getMarketPrice - Uma função que busca o preço de um ativo em uma exchange específica.
- * - GetMarketPriceInput - O tipo de entrada para a função.
  */
 
 import { ai } from '@/ai/genkit';
@@ -18,7 +17,7 @@ const GetMarketPriceInputSchema = z.object({
   asset: z.string().describe('O símbolo do ativo (ex: JASMY)'),
   counterpart: z.string().optional().default('USDT').describe('A contraparte (ex: USDT)'),
 });
-export type GetMarketPriceInput = z.infer<typeof GetMarketPriceInputSchema>;
+type GetMarketPriceInput = z.infer<typeof GetMarketPriceInputSchema>;
 
 // Função de invólucro exportada que chama o fluxo Genkit
 export async function getMarketPrice(

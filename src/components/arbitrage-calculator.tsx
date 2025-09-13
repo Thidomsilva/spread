@@ -6,11 +6,11 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RefreshCcw, TestTube, ArrowRight, Sparkles, Search, Trash } from "lucide-react";
-import { getMarketPrice, GetMarketPriceInput } from "@/ai/flows/get-market-price";
-import { networkAnalysis, NetworkAnalysisInput, NetworkAnalysisOutput } from "@/ai/flows/network-analysis";
+import { getMarketPrice } from "@/ai/flows/get-market-price";
+import { networkAnalysis } from "@/ai/flows/network-analysis";
 import { getExchangeAssets } from "@/ai/flows/get-exchange-assets";
 import { addAssetToDB } from "@/ai/flows/manage-assets-db";
-import { investmentAnalysis, InvestmentAnalysisInput } from "@/ai/flows/investment-analysis";
+import { investmentAnalysis } from "@/ai/flows/investment-analysis";
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -19,6 +19,28 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { cn } from "@/lib/utils";
 import { Switch } from "@/components/ui/switch";
 import { ChevronsUpDown, Check } from "lucide-react";
+
+// Definições de tipo que precisam estar no escopo do componente
+type NetworkAnalysisOutput = {
+    isCompatible: boolean;
+    commonNetworks: string[];
+    reasoning: string;
+};
+
+type InvestmentAnalysisInput = {
+    assetA: string;
+    exchangeA: string;
+    priceA: number;
+    feeA: number;
+    assetB: string;
+    exchangeB: string;
+    priceB: number;
+    feeB: number;
+    initialInvestment: number;
+    finalUSDTValue: number;
+    spread: number;
+    networkAnalysisResult: NetworkAnalysisOutput;
+};
 
 
 type DiagnosisStatus = 'positive' | 'negative' | 'neutral';
@@ -286,7 +308,7 @@ export default function ArbitrageCalculator() {
         return;
       }
       try {
-        const input: NetworkAnalysisInput = {
+        const input = {
           asset: assetA,
           sourceExchange: exchangeA,
           destinationExchange: exchangeB,
@@ -345,13 +367,13 @@ export default function ArbitrageCalculator() {
       let feeB = tradeFeeB;
 
       try {
-        const inputA: GetMarketPriceInput = { exchange: exchangeA as any, asset: assetA };
+        const inputA = { exchange: exchangeA as any, asset: assetA };
         const pA = await getMarketPrice(inputA);
         setPriceA(pA.toString());
         localPriceA = pA.toString();
         await addNewAssetToDB(exchangeA, assetA, assetsA, setAssetsA);
         
-        const inputB: GetMarketPriceInput = { exchange: exchangeB as any, asset: assetB };
+        const inputB = { exchange: exchangeB as any, asset: assetB };
         const pB = await getMarketPrice(inputB);
         setPriceB(pB.toString());
         localPriceB = pB.toString();
@@ -386,7 +408,7 @@ export default function ArbitrageCalculator() {
         return { finalUSDTValue, spread };
       })();
 
-      if (localPriceA && localPriceB && tempCalculationResults) {
+      if (localPriceA && localPriceB && tempCalculationResults && netAnalysisResult) {
         startInvestmentAnalysisTransition(async () => {
           const investmentInput: InvestmentAnalysisInput = {
             assetA,
@@ -400,7 +422,7 @@ export default function ArbitrageCalculator() {
             initialInvestment: parseFloat(initialInvestment),
             finalUSDTValue: tempCalculationResults.finalUSDTValue,
             spread: tempCalculationResults.spread,
-            networkAnalysisResult: netAnalysisResult ?? { isCompatible: false, commonNetworks: [], reasoning: "Análise de rede não concluída."}
+            networkAnalysisResult: netAnalysisResult
           };
           try {
             const { commentary } = await investmentAnalysis(investmentInput);

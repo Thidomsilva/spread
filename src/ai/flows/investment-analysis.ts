@@ -3,17 +3,20 @@
  * @fileOverview Um consultor de IA para analisar a viabilidade de uma operação de arbitragem.
  *
  * - investmentAnalysis - Uma função que avalia uma operação e fornece recomendações.
- * - InvestmentAnalysisInput - O tipo de entrada para a função.
- * - InvestmentAnalysisOutput - O tipo de retorno para a função.
  */
 
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
-import type { NetworkAnalysisOutput } from './network-analysis';
-import { NetworkAnalysisOutputSchema } from './network-analysis';
+
+// Esquemas de tipo que foram movidos de network-analysis.ts
+const NetworkAnalysisOutputSchema = z.object({
+  isCompatible: z.boolean().describe('Se existe pelo menos uma rede compatível entre as exchanges.'),
+  commonNetworks: z.array(z.string()).describe('A lista de redes de transferência compatíveis em comum.'),
+  reasoning: z.string().describe('Uma breve explicação sobre a compatibilidade ou incompatibilidade.'),
+});
 
 // Esquema de entrada para o fluxo de análise de investimento
-export const InvestmentAnalysisInputSchema = z.object({
+const InvestmentAnalysisInputSchema = z.object({
   assetA: z.string(),
   exchangeA: z.string(),
   priceA: z.number(),
@@ -27,7 +30,7 @@ export const InvestmentAnalysisInputSchema = z.object({
   spread: z.number(),
   networkAnalysisResult: NetworkAnalysisOutputSchema,
 });
-export type InvestmentAnalysisInput = z.infer<
+type InvestmentAnalysisInput = z.infer<
   typeof InvestmentAnalysisInputSchema
 >;
 
@@ -37,7 +40,7 @@ const InvestmentAnalysisOutputSchema = z.object({
     .string()
     .describe('Um comentário detalhado e conselhos sobre a operação de arbitragem.'),
 });
-export type InvestmentAnalysisOutput = z.infer<
+type InvestmentAnalysisOutput = z.infer<
   typeof InvestmentAnalysisOutputSchema
 >;
 
