@@ -2,11 +2,10 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle, HelpCircle, RefreshCcw, TestTube2, X, Loader2, ArrowUp, ArrowDown } from "lucide-react";
@@ -183,14 +182,11 @@ export default function SpreadCalculator() {
   
   return (
     <TooltipProvider>
-      <div className="container mx-auto p-4 md:p-8">
-        <div className="grid md:grid-cols-5 gap-8">
+      <main className="container mx-auto p-4 md:p-8 flex-grow flex items-center justify-center">
+        <div className="grid md:grid-cols-5 gap-8 w-full max-w-6xl">
           <div className="md:col-span-2">
             <Card>
-              <CardHeader>
-                <CardTitle>Entradas</CardTitle>
-              </CardHeader>
-              <CardContent className="grid gap-4">
+              <CardContent className="grid gap-4 pt-6">
                 <div className="grid gap-2">
                   <Label htmlFor="initial-usdt">USDT Inicial</Label>
                   <Input id="initial-usdt" type="number" placeholder="100" value={initialUsdt} onChange={(e) => setInitialUsdt(e.target.value)} />
@@ -223,14 +219,14 @@ export default function SpreadCalculator() {
                     <Input id="sell-fee" type="number" step="any" placeholder="0.1" value={sellFee} onChange={(e) => setSellFee(e.target.value)} />
                   </div>
                 </div>
-              </CardContent>
-              <CardFooter className="flex-col sm:flex-row gap-2">
-                <Button onClick={handleExample} variant="outline" className="w-full sm:w-auto"><TestTube2 /> Exemplo</Button>
-                <div className="flex gap-2 w-full sm:w-auto sm:ml-auto">
-                    <Button onClick={handleZeroFees} variant="secondary" className="w-full sm:w-auto"><X /> Zerar Taxas</Button>
-                    <Button onClick={handleReset} variant="ghost" className="w-full sm:w-auto"><RefreshCcw /> Reset</Button>
+                 <div className="flex flex-col sm:flex-row gap-2 pt-4">
+                    <Button onClick={handleExample} variant="outline" className="w-full sm:w-auto"><TestTube2 /> Exemplo</Button>
+                    <div className="flex gap-2 w-full sm:w-auto sm:ml-auto">
+                        <Button onClick={handleZeroFees} variant="secondary" className="w-full sm:w-auto"><X /> Zerar Taxas</Button>
+                        <Button onClick={handleReset} variant="ghost" className="w-full sm:w-auto"><RefreshCcw /> Reset</Button>
+                    </div>
                 </div>
-              </CardFooter>
+              </CardContent>
             </Card>
           </div>
 
@@ -281,30 +277,9 @@ export default function SpreadCalculator() {
                  {!isParityLoading && !parityResult && <div className="text-sm text-muted-foreground">Insira os preços para ver a análise.</div>}
               </CardContent>
             </Card>
-
-            <Accordion type="single" collapsible>
-              <AccordionItem value="item-1">
-                <AccordionTrigger>Fórmulas Utilizadas</AccordionTrigger>
-                <AccordionContent>
-                  <pre className="text-xs p-4 bg-muted rounded-md overflow-x-auto font-code">
-                    {`XPR_bruto = USDT_inicial / Preco_XPR_USDT
-XPR_pos_compra = XPR_bruto * (1 - taxa_compra%)
-XPR_líquido_para_swap = XPR_pos_compra - ${FIXED_XPR_FEE}
-VAULTA_recebido = XPR_líquido_para_swap * Fator_XPR_VAULTA
-USDT_final_bruto = VAULTA_recebido * Preco_VAULTA_USDT
-USDT_final_líquido = USDT_final_bruto * (1 - taxa_venda%)
-Spread_% = ((USDT_final_líquido - USDT_inicial) / USDT_inicial) * 100
-
-// Parity Comparison
-XPR_equivalente_USDT_via_rede = Preco_VAULTA_USDT * Fator_XPR_VAULTA
-Delta_relativo_% = ((XPR_equiv - Preco_XPR_USDT) / Preco_XPR_USDT) * 100`}
-                  </pre>
-                </AccordionContent>
-              </AccordionItem>
-            </Accordion>
           </div>
         </div>
-      </div>
+      </main>
     </TooltipProvider>
   );
 }
