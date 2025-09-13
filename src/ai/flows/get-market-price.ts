@@ -40,16 +40,18 @@ const getMarketPriceFlow = ai.defineFlow(
     let price = 0;
     const counterpart = input.counterpart ?? 'USDT';
     
-    // Remove a barra e garante que a contraparte não seja duplicada.
-    const cleanAsset = input.asset.toUpperCase().replace(/\/.*/, '');
+    // Remove barras e outros caracteres para garantir a formatação correta do par.
+    const cleanAsset = input.asset.toUpperCase().replace(/[^A-Z0-9]/g, '');
 
     switch (input.exchange) {
       case 'MEXC':
+        // MEXC espera o formato: JASMYUSDT
         const mexcPair = `${cleanAsset}${counterpart.toUpperCase()}`;
         const mexcResponse = await getMexcPrice(mexcPair);
         price = parseFloat(mexcResponse.price);
         break;
       case 'Bitmart':
+        // Bitmart espera o formato: JASMY_USDT
         const bitmartPair = `${cleanAsset}_${counterpart.toUpperCase()}`;
         const bitmartResponse = await getBitmartPrice(bitmartPair);
         price = parseFloat(bitmartResponse.last_price);
