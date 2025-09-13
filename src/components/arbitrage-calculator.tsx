@@ -622,3 +622,5 @@ export default function ArbitrageCalculator() {
     </Card>
   );
 }
+
+    
