@@ -6,9 +6,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { RefreshCcw, TestTube, ArrowRight, Eraser, Sparkles, Search } from "lucide-react";
+import { RefreshCcw, TestTube, ArrowRight, Eraser, Sparkles, Search, Network } from "lucide-react";
 import { liveParityComparison, LiveParityComparisonInput } from "@/ai/flows/live-parity-comparison";
 import { getMarketPrice, GetMarketPriceInput } from "@/ai/flows/get-market-price";
+import { networkAnalysis, NetworkAnalysisInput, NetworkAnalysisOutput } from "@/ai/flows/network-analysis";
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -21,6 +22,7 @@ export default function ArbitrageCalculator() {
   const [mode, setMode] = useState<CalculatorMode>('simple');
   const [isPending, startTransition] = useTransition();
   const [isFetchingRealPrice, startRealPriceTransition] = useTransition();
+  const [isAnalyzingNetworks, startNetworkAnalysisTransition] = useTransition();
   const { toast } = useToast();
 
   // Simple Spread States
@@ -36,12 +38,13 @@ export default function ArbitrageCalculator() {
   const [tradeFeeA, setTradeFeeA] = useState("0");
   const [tradeFeeB, setTradeFeeB] = useState("0");
   const [exchangeA, setExchangeA] = useState(EXCHANGES[0]);
-  const [exchangeB, setExchangeB] = useState(EXCHANGES[0]);
+  const [exchangeB, setExchangeB] = useState(EXCHANGES[1]);
 
 
   // AI State
   const [assetA, setAssetA] = useState("JASMY");
   const [assetB, setAssetB] = useState("PEPE");
+  const [networkAnalysisResult, setNetworkAnalysisResult] = useState<NetworkAnalysisOutput | null>(null);
 
   const formatNumber = (num: number, minDigits = 2, maxDigits = 4) => {
     if (isNaN(num)) return '0';
@@ -150,6 +153,7 @@ export default function ArbitrageCalculator() {
       setInitialUSDT("100");
       setTradeFeeA("0");
       setTradeFeeB("0");
+      setNetworkAnalysisResult(null);
     }
   };
 
@@ -161,6 +165,7 @@ export default function ArbitrageCalculator() {
 
   const handleAiAnalysis = () => {
     startTransition(async () => {
+      setNetworkAnalysisResult(null);
         const input: LiveParityComparisonInput = { assetA, assetB };
         try {
             const result = await liveParityComparison(input);
@@ -191,6 +196,7 @@ export default function ArbitrageCalculator() {
 
   const handleFetchRealPrices = useCallback(() => {
     startRealPriceTransition(async () => {
+      setNetworkAnalysisResult(null);
       try {
         const inputA: GetMarketPriceInput = { 
           exchange: exchangeA as any, 
@@ -222,6 +228,41 @@ export default function ArbitrageCalculator() {
     });
   }, [assetA, assetB, exchangeA, exchangeB, toast]);
 
+  const handleNetworkAnalysis = useCallback(() => {
+    startNetworkAnalysisTransition(async () => {
+      setNetworkAnalysisResult(null);
+      if (exchangeA === exchangeB) {
+        toast({
+          variant: "destructive",
+          title: "Análise de Rede Inválida",
+          description: "Selecione duas exchanges diferentes para analisar a compatibilidade de rede.",
+        });
+        return;
+      }
+      try {
+        const input: NetworkAnalysisInput = {
+          asset: assetA,
+          sourceExchange: exchangeA,
+          destinationExchange: exchangeB,
+        };
+        const result = await networkAnalysis(input);
+        setNetworkAnalysisResult(result);
+        toast({
+          title: "Análise de Rede Concluída",
+          description: `Verificada a compatibilidade de transferência para ${assetA}.`,
+        });
+      } catch (error) {
+        console.error("Network analysis failed:", error);
+        toast({
+          variant: "destructive",
+          title: "Falha na Análise de Rede",
+          description: error instanceof Error ? error.message : "Ocorreu um erro desconhecido.",
+        });
+      }
+    });
+  }, [assetA, exchangeA, exchangeB, toast]);
+
+
   useEffect(() => {
     handleReset();
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -233,7 +274,7 @@ export default function ArbitrageCalculator() {
     neutral: { text: "⚠️ Neutro", color: "text-muted-foreground" },
   };
   
-  const isAnyLoading = isPending || isFetchingRealPrice;
+  const isAnyLoading = isPending || isFetchingRealPrice || isAnalyzingNetworks;
 
   return (
     <Card className="w-full max-w-lg bg-card/50 backdrop-blur-sm">
@@ -305,15 +346,15 @@ export default function ArbitrageCalculator() {
              <div className="grid grid-cols-1 gap-4 mt-4">
               <div className="bg-background/30 p-3 rounded-md border border-border/20 space-y-3">
                    <div className="flex items-center justify-between">
-                     <Label className="text-xs text-muted-foreground">Ativos para Análise</Label>
+                     <Label className="text-xs text-muted-foreground">Ferramentas de Análise</Label>
                       <div className="flex gap-2">
                         <Button onClick={handleAiAnalysis} disabled={isAnyLoading} size="sm" variant="outline" className="h-7 text-xs">
                             <Sparkles className={isPending ? 'animate-spin' : ''}/>
-                            Análise IA
+                            Preços (IA)
                         </Button>
                          <Button onClick={handleFetchRealPrices} disabled={isAnyLoading} size="sm" variant="outline" className="h-7 text-xs">
                             <Search className={isFetchingRealPrice ? 'animate-spin' : ''}/>
-                            Buscar Preços
+                            Preços (Real)
                         </Button>
                       </div>
                    </div>
@@ -337,7 +378,7 @@ export default function ArbitrageCalculator() {
                       </Select>
                   </div>
                   <div className="grid gap-2">
-                      <Label>Vender B em</Label>
+                      <Label>Vender A (ou B) em</Label>
                       <Select value={exchangeB} onValueChange={setExchangeB} disabled={isAnyLoading}>
                           <SelectTrigger>
                               <SelectValue placeholder="Selecione a Exchange" />
@@ -373,6 +414,27 @@ export default function ArbitrageCalculator() {
                   <Input id="trade-fee-b" type="number" value={tradeFeeB} onChange={e => setTradeFeeB(e.target.value)} disabled={isAnyLoading} />
                 </div>
               </div>
+
+               <div className="border-t border-border/50 pt-4 mt-2 space-y-4">
+                <Button onClick={handleNetworkAnalysis} disabled={isAnyLoading} size="sm" className="w-full h-8 text-sm">
+                  <Network className={isAnalyzingNetworks ? 'animate-spin' : ''} />
+                  Analisar Redes de Transferência para {assetA}
+                </Button>
+
+                {networkAnalysisResult && (
+                  <div className={`text-center p-3 rounded-md border ${networkAnalysisResult.isCompatible ? 'border-success/50 bg-success/10' : 'border-destructive/50 bg-destructive/10'}`}>
+                    <p className={`font-bold text-lg ${networkAnalysisResult.isCompatible ? 'text-success' : 'text-destructive'}`}>
+                      {networkAnalysisResult.isCompatible ? '✅ Compatível' : '❌ Incompatível'}
+                    </p>
+                    <p className="text-xs text-muted-foreground">{networkAnalysisResult.reasoning}</p>
+                    {networkAnalysisResult.isCompatible && (
+                       <p className="text-sm mt-1">
+                        Redes em comum: <span className="font-semibold">{networkAnalysisResult.commonNetworks.join(', ')}</span>
+                      </p>
+                    )}
+                  </div>
+                )}
+               </div>
 
               <div className="border-t border-border/50 pt-4 mt-2 space-y-4">
                 {triResults ? (
