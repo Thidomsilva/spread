@@ -1,4 +1,4 @@
-'use server';
+"use server";
 /**
  * @fileOverview Um consultor de IA para analisar a viabilidade de uma operação de arbitragem.
  *
@@ -21,7 +21,6 @@ const InvestmentAnalysisInputSchema = z.object({
   exchangeA: z.string(),
   priceA: z.number(),
   feeA: z.number(),
-  assetB: z.string(),
   exchangeB: z.string(),
   priceB: z.number(),
   feeB: z.number(),
@@ -59,13 +58,13 @@ const investmentAnalysisPrompt = ai.definePrompt({
   prompt: `Você é um consultor de investimentos e especialista em arbitragem de criptomoedas. Sua tarefa é analisar a seguinte operação e fornecer um parecer claro e direto para o usuário.
 
     **Dados da Operação:**
-    - **Estratégia:** Comprar {{{assetA}}} na {{{exchangeA}}} e vender como {{{assetB}}} na {{{exchangeB}}}.
+    - **Estratégia:** Comprar {{{assetA}}} na {{{exchangeA}}} e vender na {{{exchangeB}}}.
     - **Investimento Inicial:** \${{{initialInvestment}}} USDT.
-    - **Resultado Final:** \${{{finalUSDTValue}}} USDT.
+    - **Resultado Final Estimado:** \${{{finalUSDTValue}}} USDT.
     - **Spread Líquido:** {{{spread}}}%.
-    - **Preço de Compra ({{{assetA}}}):** \${{{priceA}}}
-    - **Preço de Venda ({{{assetB}}}):** \${{{priceB}}}
-    - **Taxas:** {{{feeA}}}% na {{{exchangeA}}} e {{{feeB}}}% na {{{exchangeB}}}.
+    - **Preço de Compra ({{{exchangeA}}}):** \${{{priceA}}}
+    - **Preço de Venda ({{{exchangeB}}}):** \${{{priceB}}}
+    - **Taxas:** {{{feeA}}}% (compra) e {{{feeB}}}% (venda).
     - **Análise de Rede:**
         - Compatibilidade: {{{networkAnalysisResult.isCompatible}}}
         - Redes Comuns: {{{networkAnalysisResult.commonNetworks}}}
@@ -76,13 +75,13 @@ const investmentAnalysisPrompt = ai.definePrompt({
 
     **Estrutura da Resposta:**
     1.  **Veredito (1 linha):** Comece com "Recomendação: Viável", "Recomendação: Arriscada" ou "Recomendação: Inviável".
-    2.  **Análise (2-3 frases):** Explique o porquê do seu veredito. Mencione o spread, a compatibilidade de rede e outros fatores importantes.
+    2.  **Análise (2-3 frases):** Explique o porquê do seu veredito. Mencione o spread, a compatibilidade de rede e outros fatores importantes como taxas de transferência (que não estão nos dados, mas você pode mencionar como um ponto de atenção).
     3.  **Pontos de Atenção (se houver):** Liste 1 ou 2 riscos principais em formato de bullet points (usando "-"). Riscos podem incluir spread baixo, taxas altas, volatilidade do mercado, ou problemas de rede.
 
     **Exemplo de Resposta Positiva:**
     Recomendação: Viável.
     A operação apresenta um spread líquido positivo e as exchanges possuem redes de transferência compatíveis (ERC20), tornando a execução da arbitragem possível.
-    - Risco: A volatilidade dos preços pode corroer o lucro antes da conclusão da transferência.
+    - Risco: A volatilidade dos preços pode corroer o lucro antes da conclusão da transferência. Considere também as taxas de saque e depósito.
 
     **Exemplo de Resposta Negativa (Incompatibilidade):**
     Recomendação: Inviável.
@@ -103,7 +102,7 @@ const investmentAnalysisFlow = ai.defineFlow(
     outputSchema: InvestmentAnalysisOutputSchema,
   },
   async (input) => {
-    console.log(`IA analisando a operação de ${input.assetA} para ${input.assetB}`);
+    console.log(`IA analisando a operação de ${input.assetA} entre ${input.exchangeA} e ${input.exchangeB}`);
 
     const { output } = await investmentAnalysisPrompt(input);
 
@@ -114,3 +113,5 @@ const investmentAnalysisFlow = ai.defineFlow(
     return output;
   }
 );
+
+    
