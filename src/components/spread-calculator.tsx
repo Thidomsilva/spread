@@ -184,10 +184,6 @@ export default function SpreadCalculator() {
   return (
     <TooltipProvider>
       <div className="container mx-auto p-4 md:p-8">
-        <header className="text-center mb-8">
-          <h1 className="text-4xl font-bold tracking-tight font-headline">Calculadora de Spread – Triangulação</h1>
-        </header>
-
         <div className="grid md:grid-cols-5 gap-8">
           <div className="md:col-span-2">
             <Card>
