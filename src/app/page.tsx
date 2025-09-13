@@ -1,7 +1,5 @@
-import SpreadCalculator from '@/components/spread-calculator';
+import ArbitrageCalculator from '@/components/arbitrage-calculator';
 
 export default function Home() {
-  return (
-    <SpreadCalculator />
-  );
+  return <ArbitrageCalculator />;
 }
