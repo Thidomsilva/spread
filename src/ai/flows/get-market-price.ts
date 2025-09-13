@@ -13,7 +13,7 @@ import { z } from 'zod';
 const GetMarketPriceInputSchema = z.object({
   exchange: z.enum(['Binance', 'MEXC', 'Bitmart', 'Gate.io']),
   asset: z.string().describe('O símbolo do ativo (ex: JASMY)'),
-  counterpart: z.string().default('USDT').describe('A contraparte (ex: USDT)'),
+  counterpart: z.string().optional().default('USDT').describe('A contraparte (ex: USDT)'),
 });
 export type GetMarketPriceInput = z.infer<typeof GetMarketPriceInputSchema>;
 
@@ -37,10 +37,11 @@ const getMarketPriceFlow = ai.defineFlow(
     );
 
     let price = 0;
+    const counterpart = input.counterpart ?? 'USDT';
 
     switch (input.exchange) {
       case 'Binance':
-        const pair = `${input.asset.toUpperCase()}${input.counterpart.toUpperCase()}`;
+        const pair = `${input.asset.toUpperCase()}${counterpart.toUpperCase()}`;
         const response = await getBinancePrice(pair);
         price = parseFloat(response.price);
         break;
