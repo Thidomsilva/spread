@@ -37,13 +37,19 @@ const getAssetsFlow = ai.defineFlow(
     outputSchema: GetAssetsOutputSchema,
   },
   async ({ exchange }) => {
-    const docRef = doc(db, 'exchanges', exchange);
-    const docSnap = await getDoc(docRef);
+    try {
+      const docRef = doc(db, 'exchanges', exchange);
+      const docSnap = await getDoc(docRef);
 
-    if (docSnap.exists() && docSnap.data().assets) {
-      return { assets: docSnap.data().assets as string[] };
-    } else {
-      return { assets: [] };
+      if (docSnap.exists() && docSnap.data().assets) {
+        return { assets: docSnap.data().assets as string[] };
+      } else {
+        return { assets: [] };
+      }
+    } catch (error) {
+       console.error(`Falha ao buscar documento do Firestore para a exchange '${exchange}':`, error);
+       // Se houver um erro (ex: offline), retorna uma lista vazia para permitir o fallback.
+       return { assets: [] };
     }
   }
 );
