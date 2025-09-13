@@ -9,9 +9,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RefreshCcw, TestTube, ArrowRight, Eraser, Sparkles } from "lucide-react";
 import { liveParityComparison, LiveParityComparisonInput } from "@/ai/flows/live-parity-comparison";
 import { useToast } from "@/hooks/use-toast";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 type DiagnosisStatus = 'positive' | 'negative' | 'neutral';
 type CalculatorMode = 'simple' | 'triangulation';
+
+const EXCHANGES = ["Binance", "MEXC", "Bitmart", "Gate.io"];
 
 export default function ArbitrageCalculator() {
   const [mode, setMode] = useState<CalculatorMode>('simple');
@@ -31,6 +34,9 @@ export default function ArbitrageCalculator() {
   const [initialUSDT, setInitialUSDT] = useState("100");
   const [tradeFeeA, setTradeFeeA] = useState("0");
   const [tradeFeeB, setTradeFeeB] = useState("0");
+  const [exchangeA, setExchangeA] = useState(EXCHANGES[0]);
+  const [exchangeB, setExchangeB] = useState(EXCHANGES[1]);
+
 
   // AI State
   const [assetA, setAssetA] = useState("JASMY");
@@ -266,6 +272,31 @@ export default function ArbitrageCalculator() {
                           <Sparkles className={isPending ? 'animate-spin' : ''}/>
                       </Button>
                    </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                      <Label>Comprar A em</Label>
+                      <Select value={exchangeA} onValueChange={setExchangeA}>
+                          <SelectTrigger>
+                              <SelectValue placeholder="Selecione a Exchange" />
+                          </SelectTrigger>
+                          <SelectContent>
+                              {EXCHANGES.map(ex => <SelectItem key={ex} value={ex}>{ex}</SelectItem>)}
+                          </SelectContent>
+                      </Select>
+                  </div>
+                  <div className="grid gap-2">
+                      <Label>Vender B em</Label>
+                      <Select value={exchangeB} onValueChange={setExchangeB}>
+                          <SelectTrigger>
+                              <SelectValue placeholder="Selecione a Exchange" />
+                          </SelectTrigger>
+                          <SelectContent>
+                              {EXCHANGES.map(ex => <SelectItem key={ex} value={ex}>{ex}</SelectItem>)}
+                          </SelectContent>
+                      </Select>
+                  </div>
               </div>
 
               <div className="grid grid-cols-3 gap-4">
