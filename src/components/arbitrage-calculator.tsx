@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback, useTransition, useEffect } from "react";
+import { useState, useMemo, useCallback, useTransition, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -182,6 +182,7 @@ export default function ArbitrageCalculator() {
   const [assetsA, setAssetsA] = useState<string[]>([]);
   const [assetsB, setAssetsB] = useState<string[]>([]);
   const [autoRefresh, setAutoRefresh] = usePersistentState("autoRefresh", false);
+  const isInitialMount = useRef(true);
 
 
   const fetchAssets = useCallback(async (exchange: string, assetSetter: React.Dispatch<React.SetStateAction<string[]>>, startTransitionFunc: React.TransitionStartFunction) => {
@@ -451,6 +452,12 @@ export default function ArbitrageCalculator() {
   ]);
 
   useEffect(() => {
+    // Impede a execução na montagem inicial
+    if (isInitialMount.current) {
+        isInitialMount.current = false;
+        return;
+    }
+
     if (!autoRefresh || isFetchingRealPrice) {
       return;
     }
@@ -471,11 +478,9 @@ export default function ArbitrageCalculator() {
     return () => {
       clearInterval(intervalId);
       // Toast para informar que o modo ao vivo foi desativado
-      if (autoRefresh) { // Apenas mostra se estava ativo ao desmontar
-          toast({
-              title: "Modo Ao Vivo Desativado",
-          });
-      }
+      toast({
+          title: "Modo Ao Vivo Desativado",
+      });
     };
   }, [autoRefresh, handleFetchRealPrices, isFetchingRealPrice, toast]);
   
