@@ -37,19 +37,15 @@ const getAssetsFlow = ai.defineFlow(
     outputSchema: GetAssetsOutputSchema,
   },
   async ({ exchange }) => {
-    try {
-      const docRef = doc(db, 'exchanges', exchange);
-      const docSnap = await getDoc(docRef);
+    // A captura de erros (try/catch) deve ser feita pelo chamador (get-exchange-assets.ts),
+    // pois ele tem o contexto para implementar uma lógica de fallback.
+    const docRef = doc(db, 'exchanges', exchange);
+    const docSnap = await getDoc(docRef);
 
-      if (docSnap.exists() && docSnap.data().assets) {
-        return { assets: docSnap.data().assets as string[] };
-      } else {
-        return { assets: [] };
-      }
-    } catch (error) {
-       console.error(`Falha ao buscar documento do Firestore para a exchange '${exchange}':`, error);
-       // Se houver um erro (ex: offline), retorna uma lista vazia para permitir o fallback.
-       return { assets: [] };
+    if (docSnap.exists() && docSnap.data().assets) {
+      return { assets: docSnap.data().assets as string[] };
+    } else {
+      return { assets: [] };
     }
   }
 );
@@ -78,20 +74,28 @@ const addAssetFlow = ai.defineFlow(
   async ({ exchange, asset }) => {
     const assetUpperCase = asset.toUpperCase();
     const docRef = doc(db, 'exchanges', exchange);
-    const docSnap = await getDoc(docRef);
+    
+    // Envolve a lógica em um try/catch para lidar com possíveis falhas de escrita
+    try {
+        const docSnap = await getDoc(docRef);
 
-    let currentAssets: string[] = [];
-    if (docSnap.exists() && Array.isArray(docSnap.data().assets)) {
-      currentAssets = docSnap.data().assets;
-    }
+        let currentAssets: string[] = [];
+        if (docSnap.exists() && Array.isArray(docSnap.data().assets)) {
+          currentAssets = docSnap.data().assets;
+        }
 
-    // Verifica se o ativo já existe (case-insensitive)
-    if (!currentAssets.some(a => a.toUpperCase() === assetUpperCase)) {
-      const newAssets = [...currentAssets, assetUpperCase];
-      await setDoc(docRef, { assets: newAssets }, { merge: true });
-      console.log(`Ativo '${assetUpperCase}' adicionado à exchange '${exchange}' no Firestore.`);
-    } else {
-      console.log(`Ativo '${assetUpperCase}' já existe na exchange '${exchange}'. Nenhum dado foi alterado.`);
+        // Verifica se o ativo já existe (case-insensitive)
+        if (!currentAssets.some(a => a.toUpperCase() === assetUpperCase)) {
+          const newAssets = [...currentAssets, assetUpperCase];
+          await setDoc(docRef, { assets: newAssets }, { merge: true });
+          console.log(`Ativo '${assetUpperCase}' adicionado à exchange '${exchange}' no Firestore.`);
+        } else {
+          console.log(`Ativo '${assetUpperCase}' já existe na exchange '${exchange}'. Nenhum dado foi alterado.`);
+        }
+    } catch (error) {
+        console.error(`Falha ao adicionar/verificar o ativo '${assetUpperCase}' para a exchange '${exchange}':`, error);
+        // Lança o erro para que o chamador saiba que a escrita falhou.
+        throw new Error(`Não foi possível salvar o ativo no banco de dados: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
     }
   }
 );
