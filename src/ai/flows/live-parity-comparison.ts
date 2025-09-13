@@ -10,6 +10,28 @@
 import {ai} from '@/ai/genkit';
 import {z} from 'zod';
 
+// Ferramenta para a IA "buscar" dados de mercado simulados
+const getMarketData = ai.defineTool(
+  {
+    name: 'getMarketData',
+    description: 'Obtém dados de mercado simulados para um par de moedas. Use USDT como contraparte para preços e o par direto para o fator de conversão.',
+    inputSchema: z.object({
+      pair: z.string().describe('O par de moedas no formato ATIVO/CONTRA-MOEDA (ex: JASMY/USDT).'),
+    }),
+    outputSchema: z.object({
+      price: z.number().describe('O preço de mercado simulado para o par.'),
+    }),
+  },
+  async ({pair}) => {
+    // Em um cenário real, aqui você chamaria a API de uma exchange.
+    // Para esta simulação, a IA irá gerar um preço realista.
+    console.log(`Buscando dados de mercado simulados para o par: ${pair}`);
+    // O retorno é apenas uma estrutura, a IA preencherá o valor durante a execução.
+    return { price: 0 }; 
+  }
+);
+
+
 // Definição do esquema de entrada com os nomes dos ativos
 export const LiveParityComparisonInputSchema = z.object({
   assetA: z.string().describe('O nome/símbolo do primeiro ativo (ex: JASMY)'),
@@ -23,7 +45,9 @@ export type LiveParityComparisonInput = z.infer<
 export const LiveParityComparisonOutputSchema = z.object({
   priceA: z.number().describe('O preço de compra do Ativo A em USDT.'),
   priceB: z.number().describe('O preço de venda do Ativo B em USDT.'),
-  factorAB: z.number().describe('O fator de conversão direto do Ativo A para o Ativo B.'),
+  factorAB: z
+    .number()
+    .describe('O fator de conversão direto do Ativo A para o Ativo B.'),
 });
 export type LiveParityComparisonOutput = z.infer<
   typeof LiveParityComparisonOutputSchema
@@ -36,7 +60,28 @@ export async function liveParityComparison(
   return liveParityComparisonFlow(input);
 }
 
-// Definição do fluxo Genkit
+// Definição do prompt que será usado pela IA
+const liveParityPrompt = ai.definePrompt({
+  name: 'liveParityPrompt',
+  input: {schema: LiveParityComparisonInputSchema},
+  output: {schema: LiveParityComparisonOutputSchema},
+  tools: [getMarketData],
+  prompt: `Você é um expert em trading de criptomoedas e sua tarefa é encontrar preços de mercado para uma operação de arbitragem triangular.
+
+    Ativos da operação:
+    - Ativo de Compra: {{{assetA}}}
+    - Ativo de Venda: {{{assetB}}}
+
+    Instruções:
+    1.  **priceA**: Use a ferramenta \`getMarketData\` para encontrar o preço de COMPRA para o par {{{assetA}}}/USDT.
+    2.  **priceB**: Use a ferramenta \`getMarketData\` para encontrar o preço de VENDA para o par {{{assetB}}}/USDT.
+    3.  **factorAB**: Use a ferramenta \`getMarketData\` para encontrar a taxa de conversão (fator de troca) para o par {{{assetA}}}/{{{assetB}}}.
+
+    Após obter todos os dados, retorne os três valores no formato JSON especificado.`,
+});
+
+
+// Definição do fluxo Genkit que usa o prompt
 const liveParityComparisonFlow = ai.defineFlow(
   {
     name: 'liveParityComparisonFlow',
@@ -44,19 +89,17 @@ const liveParityComparisonFlow = ai.defineFlow(
     outputSchema: LiveParityComparisonOutputSchema,
   },
   async (input) => {
-    // NOTA: Em um cenário real, aqui seria o local para chamar APIs de exchanges
-    // para obter os preços em tempo real. Como não temos acesso, vamos retornar
-    // dados de exemplo para simular o comportamento da IA.
     console.log(
-      `Analisando paridade para ${input.assetA} -> ${input.assetB}`
+      `Analisando paridade com IA para ${input.assetA} -> ${input.assetB}`
     );
 
-    // Simulando a busca de preços para o exemplo (JASMY -> PEPE)
-    // Estes são os valores do exemplo que usamos antes.
-    return {
-      priceA: 0.0067035, // Preço de compra de JASMY/USDT
-      priceB: 0.4920,    // Preço de venda de PEPE/USDT (exemplo, não é o preço real)
-      factorAB: 0.0133,  // Fator de conversão JASMY -> PEPE
-    };
+    const {output} = await liveParityPrompt(input);
+    
+    // Se a IA não retornar um resultado, lança um erro.
+    if (!output) {
+      throw new Error('A análise da IA não retornou um resultado válido.');
+    }
+    
+    return output;
   }
 );
