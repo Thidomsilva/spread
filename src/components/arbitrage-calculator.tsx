@@ -316,10 +316,10 @@ export default function ArbitrageCalculator() {
     startNetworkAnalysisTransition(async () => {
       setNetworkAnalysisResult(null);
       if (exchangeA === exchangeB) {
-        toast({
-          variant: "destructive",
-          title: "Análise de Rede Inválida",
-          description: "Selecione duas exchanges diferentes para analisar a compatibilidade de rede.",
+        setNetworkAnalysisResult({
+          isCompatible: false,
+          commonNetworks: [],
+          reasoning: "As exchanges de origem e destino são as mesmas."
         });
         return;
       }
@@ -331,10 +331,6 @@ export default function ArbitrageCalculator() {
         };
         const result = await networkAnalysis(input);
         setNetworkAnalysisResult(result);
-        toast({
-          title: "Análise de Rede Concluída",
-          description: `Verificada a compatibilidade de transferência para ${assetA}.`,
-        });
       } catch (error) {
         console.error("Network analysis failed:", error);
         toast({
@@ -345,6 +341,12 @@ export default function ArbitrageCalculator() {
       }
     });
   }, [assetA, exchangeA, exchangeB, toast]);
+  
+  useEffect(() => {
+    if (assetA && exchangeA && exchangeB) {
+      handleNetworkAnalysis();
+    }
+  }, [assetA, exchangeA, exchangeB, handleNetworkAnalysis]);
 
   const diagnosisStyles = {
     positive: { text: "✅ Arbitragem Positiva", color: "text-success" },
@@ -449,11 +451,12 @@ export default function ArbitrageCalculator() {
             </div>
           </div>
 
-          <div className="space-y-4">
-            <Button onClick={handleNetworkAnalysis} disabled={isAnyLoading} size="sm" variant="secondary" className="w-full h-9">
-              <Network className={isAnalyzingNetworks ? 'animate-spin mr-2' : 'mr-2'} />
-              Analisar Redes de Transferência para {assetA}
-            </Button>
+           {isAnalyzingNetworks && (
+             <div className="flex items-center justify-center text-sm text-muted-foreground">
+                <Network className="animate-spin mr-2 h-4 w-4" />
+                Analisando compatibilidade de redes para {assetA}...
+              </div>
+           )}
 
             {networkAnalysisResult && (
               <div className={`text-center p-3 rounded-md border ${networkAnalysisResult.isCompatible ? 'border-success/50 bg-success/10' : 'border-destructive/50 bg-destructive/10'}`}>
@@ -468,7 +471,6 @@ export default function ArbitrageCalculator() {
                 )}
               </div>
             )}
-          </div>
 
           <div className="border-t-2 border-primary/20 pt-6 space-y-6">
             {triResults ? (
