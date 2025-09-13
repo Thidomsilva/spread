@@ -75,7 +75,6 @@ const addAssetFlow = ai.defineFlow(
     const assetUpperCase = asset.toUpperCase();
     const docRef = doc(db, 'exchanges', exchange);
     
-    // Envolve a lógica em um try/catch para lidar com possíveis falhas de escrita
     try {
         const docSnap = await getDoc(docRef);
 
@@ -84,7 +83,6 @@ const addAssetFlow = ai.defineFlow(
           currentAssets = docSnap.data().assets;
         }
 
-        // Verifica se o ativo já existe (case-insensitive)
         if (!currentAssets.some(a => a.toUpperCase() === assetUpperCase)) {
           const newAssets = [...currentAssets, assetUpperCase];
           await setDoc(docRef, { assets: newAssets }, { merge: true });
@@ -94,8 +92,6 @@ const addAssetFlow = ai.defineFlow(
         }
     } catch (error) {
         console.error(`Falha ao adicionar/verificar o ativo '${assetUpperCase}' para a exchange '${exchange}':`, error);
-        // Lança o erro para que o chamador saiba que a escrita falhou.
-        throw new Error(`Não foi possível salvar o ativo no banco de dados: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
     }
   }
 );
