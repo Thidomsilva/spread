@@ -309,7 +309,7 @@ export default function ArbitrageCalculator() {
                     <div className="space-y-2 text-xs text-muted-foreground bg-background/50 p-3 rounded-md border border-border/20">
                         <h4 className="font-bold text-foreground text-sm pb-1">Detalhes da Operação</h4>
                         <div className="flex justify-between"><span>A (bruto):</span> <span>{formatNumber(triResults.A_bruto, 4)}</span></div>
-                        <div className="flex justify-between"><span>A (pós-swap fee):</span> <span>{formatNumber(triResults.A_pos_compra, 4)}</span></div>
+                        <div className="flex justify-between"><span>A (pós-taxa):</span> <span>{formatNumber(triResults.A_pos_compra, 4)}</span></div>
                         <div className="flex justify-between"><span>B (recebido):</span> <span>{formatNumber(triResults.B_recebido, 4)}</span></div>
                     </div>
 
