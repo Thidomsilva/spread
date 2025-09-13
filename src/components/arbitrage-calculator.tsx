@@ -24,22 +24,23 @@ type DiagnosisStatus = 'positive' | 'negative' | 'neutral';
 
 const EXCHANGES = ["MEXC", "Bitmart", "Gate.io"];
 
-// Hook para persistir estado no localStorage
+// Hook para persistir estado no localStorage de forma segura
 function usePersistentState<T>(key: string, defaultValue: T): [T, React.Dispatch<React.SetStateAction<T>>] {
-  const [state, setState] = useState<T>(() => {
-    // Acessa o localStorage apenas no cliente
-    if (typeof window !== 'undefined') {
-      try {
-        const storedValue = window.localStorage.getItem(key);
-        return storedValue ? JSON.parse(storedValue) : defaultValue;
-      } catch (error) {
-        console.error(`Error reading localStorage key “${key}”:`, error);
-        return defaultValue;
-      }
-    }
-    return defaultValue;
-  });
+  const [state, setState] = useState<T>(defaultValue);
 
+  // Efeito para carregar o estado do localStorage apenas no cliente
+  useEffect(() => {
+    try {
+      const storedValue = window.localStorage.getItem(key);
+      if (storedValue !== null) {
+        setState(JSON.parse(storedValue));
+      }
+    } catch (error) {
+      console.error(`Error reading localStorage key “${key}”:`, error);
+    }
+  }, [key]);
+
+  // Efeito para salvar o estado no localStorage sempre que ele mudar
   useEffect(() => {
     try {
       window.localStorage.setItem(key, JSON.stringify(state));
