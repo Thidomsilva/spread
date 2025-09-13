@@ -17,7 +17,6 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { cn } from "@/lib/utils";
-import { Switch } from "@/components/ui/switch";
 import { ChevronsUpDown, Check } from "lucide-react";
 
 // Definições de tipo que precisam estar no escopo do componente
@@ -181,8 +180,6 @@ export default function ArbitrageCalculator() {
 
   const [assetsA, setAssetsA] = useState<string[]>([]);
   const [assetsB, setAssetsB] = useState<string[]>([]);
-  const [autoRefresh, setAutoRefresh] = usePersistentState("autoRefresh", false);
-  const isInitialMount = useRef(true);
 
 
   const fetchAssets = useCallback(async (exchange: string, assetSetter: React.Dispatch<React.SetStateAction<string[]>>, startTransitionFunc: React.TransitionStartFunction) => {
@@ -290,7 +287,6 @@ export default function ArbitrageCalculator() {
     setTradeFeeB("0.1");
     setNetworkAnalysisResult(null);
     setAiCommentary(null);
-    setAutoRefresh(false);
   };
 
   const handleClear = () => {
@@ -388,7 +384,6 @@ export default function ArbitrageCalculator() {
         localPriceB = pB.toString();
         await addNewAssetToDB(exchangeB, assetB, assetsB, setAssetsB);
       } catch (error) {
-        setAutoRefresh(false);
         toast({
           variant: "destructive",
           title: "Falha ao Buscar Preços",
@@ -446,41 +441,8 @@ export default function ArbitrageCalculator() {
   }, [
     assetA, assetB, exchangeA, exchangeB, toast, assetsA, assetsB, isFetchingRealPrice, 
     setPriceA, setPriceB, handleNetworkAnalysis, tradeFeeA, tradeFeeB, initialInvestment,
-    addNewAssetToDB, setAutoRefresh, setAssetsA, setAssetsB
+    addNewAssetToDB, setAssetsA, setAssetsB
   ]);
-
-  useEffect(() => {
-    // Impede a execução na montagem inicial
-    if (isInitialMount.current) {
-        isInitialMount.current = false;
-        return;
-    }
-
-    if (!autoRefresh || isFetchingRealPrice) {
-      return;
-    }
-
-    // Executa a primeira vez imediatamente
-    handleFetchRealPrices(); 
-
-    const intervalId = setInterval(() => {
-      handleFetchRealPrices();
-    }, 15000); // 15 segundos
-
-    // Toast para informar que o modo ao vivo está ativo
-    toast({
-        title: "Modo Ao Vivo Ativado",
-        description: "Os preços serão atualizados a cada 15 segundos.",
-    });
-
-    return () => {
-      clearInterval(intervalId);
-      // Toast para informar que o modo ao vivo foi desativado
-      toast({
-          title: "Modo Ao Vivo Desativado",
-      });
-    };
-  }, [autoRefresh, handleFetchRealPrices, isFetchingRealPrice, toast]);
   
   const diagnosisStyles = {
     positive: { text: "✅ Arbitragem Positiva", color: "text-success" },
@@ -500,23 +462,19 @@ export default function ArbitrageCalculator() {
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
               <Label className="text-sm font-medium text-primary">Ferramentas de Análise</Label>
               <div className="flex items-center gap-2">
-                <Button onClick={handleFetchRealPrices} disabled={isAnyLoading || isPriceLoading || autoRefresh} size="sm" variant="default" className="h-8">
+                <Button onClick={handleFetchRealPrices} disabled={isAnyLoading || isPriceLoading} size="sm" variant="default" className="h-8">
                     <Search className={cn("h-4 w-4", isPriceLoading && 'animate-spin')}/>
                     Buscar Preços e Analisar
                 </Button>
               </div>
             </div>
-             <div className="flex items-center space-x-2 pt-2">
-                <Switch id="auto-refresh" checked={autoRefresh} onCheckedChange={setAutoRefresh} disabled={isAnyLoading} />
-                <Label htmlFor="auto-refresh" className="text-sm font-medium">Atualização Automática (15s)</Label>
-              </div>
         </div>
 
         {/* Investimento Inicial */}
         <div className="p-4 rounded-lg border border-border/50 bg-background/30 mb-4">
           <Label className="text-xs text-muted-foreground" htmlFor="initial-investment">Investimento Inicial (USDT)</Label>
           <div className="mt-2">
-            <Input id="initial-investment" type="number" placeholder="100" value={initialInvestment} onChange={e => setInitialInvestment(e.target.value)} disabled={isAnyLoading || autoRefresh} className="font-bold text-2xl h-12 p-2"/>
+            <Input id="initial-investment" type="number" placeholder="100" value={initialInvestment} onChange={e => setInitialInvestment(e.target.value)} disabled={isAnyLoading} className="font-bold text-2xl h-12 p-2"/>
           </div>
         </div>
         
@@ -539,12 +497,12 @@ export default function ArbitrageCalculator() {
                           onChange={setAssetA}
                           assets={assetsA}
                           isLoading={isFetchingAssetsA}
-                          disabled={isAnyLoading || autoRefresh}
+                          disabled={isAnyLoading}
                         />
                     </div>
                     <div className="flex-1 grid gap-2">
                         <Label className="text-xs" htmlFor="exchange-a">Na Exchange</Label>
-                        <Select value={exchangeA} onValueChange={setExchangeA} disabled={isAnyLoading || autoRefresh}>
+                        <Select value={exchangeA} onValueChange={setExchangeA} disabled={isAnyLoading}>
                             <SelectTrigger id="exchange-a"><SelectValue /></SelectTrigger>
                             <SelectContent>{EXCHANGES.map(ex => <SelectItem key={ex} value={ex}>{ex}</SelectItem>)}</SelectContent>
                         </Select>
@@ -556,11 +514,11 @@ export default function ArbitrageCalculator() {
                  <div className="grid grid-cols-2 gap-4 mt-4">
                     <div className="grid gap-2">
                         <Label className="text-xs" htmlFor="price-a">Preço {assetA}/USDT</Label>
-                        <Input id="price-a" type="number" placeholder="0.00" value={priceA} onChange={e => setPriceA(e.target.value)} disabled={isAnyLoading || autoRefresh}/>
+                        <Input id="price-a" type="number" placeholder="0.00" value={priceA} onChange={e => setPriceA(e.target.value)} disabled={isAnyLoading}/>
                     </div>
                     <div className="grid gap-2">
                         <Label className="text-xs" htmlFor="trade-fee-a">Taxa de Negociação (%)</Label>
-                        <Input id="trade-fee-a" type="number" value={tradeFeeA} onChange={e => setTradeFeeA(e.target.value)} disabled={isAnyLoading || autoRefresh} />
+                        <Input id="trade-fee-a" type="number" value={tradeFeeA} onChange={e => setTradeFeeA(e.target.value)} disabled={isAnyLoading} />
                     </div>
                 </div>
             </div>
@@ -576,12 +534,12 @@ export default function ArbitrageCalculator() {
                           onChange={setAssetB}
                           assets={assetsB}
                           isLoading={isFetchingAssetsB}
-                          disabled={isAnyLoading || autoRefresh}
+                          disabled={isAnyLoading}
                         />
                     </div>
                     <div className="flex-1 grid gap-2">
                         <Label className="text-xs" htmlFor="exchange-b">Na Exchange</Label>
-                        <Select value={exchangeB} onValueChange={setExchangeB} disabled={isAnyLoading || autoRefresh}>
+                        <Select value={exchangeB} onValueChange={setExchangeB} disabled={isAnyLoading}>
                             <SelectTrigger id="exchange-b"><SelectValue /></SelectTrigger>
                             <SelectContent>{EXCHANGES.map(ex => <SelectItem key={ex} value={ex}>{ex}</SelectItem>)}</SelectContent>
                         </Select>
@@ -593,11 +551,11 @@ export default function ArbitrageCalculator() {
                  <div className="grid grid-cols-2 gap-4 mt-4">
                     <div className="grid gap-2">
                         <Label className="text-xs" htmlFor="price-b">Preço {assetB}/USDT</Label>
-                        <Input id="price-b" type="number" placeholder="0.00" value={priceB} onChange={e => setPriceB(e.target.value)} disabled={isAnyLoading || autoRefresh} />
+                        <Input id="price-b" type="number" placeholder="0.00" value={priceB} onChange={e => setPriceB(e.target.value)} disabled={isAnyLoading} />
                     </div>
                     <div className="grid gap-2">
                         <Label className="text-xs" htmlFor="trade-fee-b">Taxa de Negociação (%)</Label>
-                        <Input id="trade-fee-b" type="number" value={tradeFeeB} onChange={e => setTradeFeeB(e.target.value)} disabled={isAnyLoading || autoRefresh} />
+                        <Input id="trade-fee-b" type="number" value={tradeFeeB} onChange={e => setTradeFeeB(e.target.value)} disabled={isAnyLoading} />
                     </div>
                 </div>
             </div>
@@ -680,8 +638,8 @@ export default function ArbitrageCalculator() {
           </div>
 
         <div className="flex flex-col sm:flex-row gap-2 pt-6 border-t border-border/50 mt-6">
-          <Button onClick={handleExample} variant="outline" className="w-full" disabled={isAnyLoading || autoRefresh}><TestTube /> Exemplo</Button>
-          <Button onClick={handleClear} variant="outline" className="w-full" disabled={isAnyLoading || autoRefresh}><Trash/> Limpar Preços</Button>
+          <Button onClick={handleExample} variant="outline" className="w-full" disabled={isAnyLoading}><TestTube /> Exemplo</Button>
+          <Button onClick={handleClear} variant="outline" className="w-full" disabled={isAnyLoading}><Trash/> Limpar Preços</Button>
           <Button onClick={handleReset} variant="ghost" className="w-full" disabled={isAnyLoading}><RefreshCcw /> Reset</Button>
         </div>
       </CardContent>
