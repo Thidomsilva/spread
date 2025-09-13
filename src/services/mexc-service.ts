@@ -30,9 +30,8 @@ export async function getMexcPrice(
     const data: MexcApiResponse | MexcPriceResponse[] = await response.json();
 
     // Checa se a resposta é um objeto de erro
-    if (typeof data === 'object' && 'code' in data && (data as MexcErrorResponse).code !== 200) {
-      const errorData = data as MexcErrorResponse;
-       throw new Error(`Erro da API da MEXC: ${errorData.msg}`);
+    if (typeof data === 'object' && 'code' in data && data.code !== undefined) {
+       throw new Error(`Erro da API da MEXC: ${(data as MexcErrorResponse).msg}`);
     }
 
     if (!response.ok) {
