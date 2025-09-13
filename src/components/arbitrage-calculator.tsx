@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RefreshCcw, TestTube, ArrowRight, Sparkles, Search, Trash, ChevronsRight } from "lucide-react";
-import { getMarketPrice } from "@/ai/flows/get-market-price"; // Alterado
+import { getMarketPrice } from "@/ai/flows/get-market-price";
 import { networkAnalysis } from "@/ai/flows/network-analysis";
 import { getExchangeAssets } from "@/ai/flows/get-exchange-assets";
 import { addAssetToDB } from "@/ai/flows/manage-assets-db";
@@ -19,7 +19,6 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { cn } from "@/lib/utils";
 import { ChevronsUpDown, Check } from "lucide-react";
 
-// Definições de tipo que precisam estar no escopo do componente
 type NetworkAnalysisOutput = {
     isCompatible: boolean;
     commonNetworks: string[];
@@ -44,7 +43,6 @@ type DiagnosisStatus = 'positive' | 'negative' | 'neutral';
 
 const EXCHANGES = ["MEXC", "Bitmart", "Gate.io", "Poloniex"];
 
-// Hook para persistir estado no localStorage de forma segura
 function usePersistentState<T>(key: string, defaultValue: T): [T, React.Dispatch<React.SetStateAction<T>>] {
   const [state, setState] = useState<T>(defaultValue);
   const isMounted = useRef(false);
@@ -74,8 +72,6 @@ function usePersistentState<T>(key: string, defaultValue: T): [T, React.Dispatch
   return [state, setState];
 }
 
-
-// Componente de Combobox reutilizável
 function AssetCombobox({
   value,
   onChange,
@@ -108,7 +104,7 @@ function AssetCombobox({
             placeholder={isLoading ? "Carregando..." : "Selecione ou digite"}
             className="w-full border-0 focus-visible:ring-0 focus-visible:ring-offset-0 p-0 font-bold text-lg bg-transparent"
             disabled={disabled}
-            onClick={(e) => e.stopPropagation()} // Impede o popover de fechar ao clicar no input
+            onClick={(e) => e.stopPropagation()} 
           />
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
@@ -157,7 +153,6 @@ export default function ArbitrageCalculator() {
   const [priceA, setPriceA] = usePersistentState("priceA", "");
   const [priceB, setPriceB] = usePersistentState("priceB", "");
   const [initialInvestment, setInitialInvestment] = usePersistentState("initialInvestment", "100");
-  // Taxas fixas como fallback
   const [tradeFeeA, setTradeFeeA] = usePersistentState("tradeFeeA", "0.1");
   const [tradeFeeB, setTradeFeeB] = usePersistentState("tradeFeeB", "0.1");
   const [exchangeA, setExchangeA] = usePersistentState("exchangeA", EXCHANGES[0]);
@@ -274,18 +269,17 @@ export default function ArbitrageCalculator() {
   };
 
   const handleNetworkAnalysis = useCallback(async (): Promise<NetworkAnalysisOutput | null> => {
-    let analysisResult: NetworkAnalysisOutput | null = null;
     return new Promise((resolve) => {
         startNetworkAnalysisTransition(async () => {
         setNetworkAnalysisResult(null);
-        setAiCommentary(null); // Limpa comentários antigos
+        setAiCommentary(null); 
         if (!assetA || !exchangeA || !exchangeB) {
             resolve(null);
             return;
         }
 
         if (exchangeA === exchangeB) {
-            analysisResult = {
+            const analysisResult = {
               isCompatible: false,
               commonNetworks: [],
               reasoning: "A arbitragem ocorre na mesma exchange, não há transferência de rede."
@@ -301,30 +295,32 @@ export default function ArbitrageCalculator() {
               destinationExchange: exchangeB,
             };
             const result = await networkAnalysis(input);
-            analysisResult = result;
             setNetworkAnalysisResult(result);
+            resolve(result);
         } catch (error) {
             console.error("Network analysis failed:", error);
+            const failResult = {
+              isCompatible: false,
+              commonNetworks: [],
+              reasoning: `Falha na análise: ${error instanceof Error ? error.message : "Erro desconhecido."}`
+            };
             toast({
               variant: "destructive",
               title: "Falha na Análise de Rede",
               description: error instanceof Error ? error.message : "Ocorreu um erro desconhecido.",
             });
-            analysisResult = {
-              isCompatible: false,
-              commonNetworks: [],
-              reasoning: `Falha na análise: ${error instanceof Error ? error.message : "Erro desconhecido."}`
-            };
-            setNetworkAnalysisResult(analysisResult);
-        } finally {
-            resolve(analysisResult);
+            setNetworkAnalysisResult(failResult);
+            resolve(failResult);
         }
         });
     });
   }, [assetA, exchangeA, exchangeB, toast]);
   
 
-  const addNewAssetToDB = useCallback(async (exchange: string, asset: string, assetList: string[], setAssetList: (assets: string[]) => void) => {
+  const addNewAssetToDB = useCallback(async (exchange: string, asset: string) => {
+    const assetList = exchange === exchangeA ? assetsA : assetsB;
+    const setAssetList = exchange === exchangeA ? setAssetsA : setAssetsB;
+
     if (asset && !assetList.some(a => a.toUpperCase() === asset.toUpperCase())) {
       try {
         await addAssetToDB({ exchange, asset });
@@ -335,20 +331,22 @@ export default function ArbitrageCalculator() {
         });
       } catch (error) {
         console.error(`Falha ao salvar o novo ativo ${asset} no DB:`, error);
+        // Não mostrar toast de erro para não poluir a interface
       }
     }
-  }, [toast]);
+  }, [exchangeA, exchangeB, assetsA, assetsB, toast]);
 
 
  const handleFetchRealPrices = useCallback(() => {
     if (!assetA || !exchangeA || !exchangeB || isFetchingRealPrice) return;
     
     startRealPriceTransition(async () => {
+      setPriceA("");
+      setPriceB("");
       setNetworkAnalysisResult(null);
       setAiCommentary(null);
       
       try {
-        // 1. Buscar preços e taxas em paralelo
         const [priceResultA, priceResultB] = await Promise.all([
           getMarketPrice({ asset: assetA, exchange: exchangeA }),
           getMarketPrice({ asset: assetA, exchange: exchangeB })
@@ -357,7 +355,6 @@ export default function ArbitrageCalculator() {
         const fetchedPriceA = priceResultA;
         const fetchedPriceB = priceResultB;
         
-        // Simulação de taxas - idealmente viriam de um fluxo também
         const fees: Record<string, number> = { 'MEXC': 0.1, 'Bitmart': 0.1, 'Gate.io': 0.2, 'Poloniex': 0.14 };
         const fetchedFeeA = fees[exchangeA] || 0.1;
         const fetchedFeeB = fees[exchangeB] || 0.1;
@@ -367,15 +364,11 @@ export default function ArbitrageCalculator() {
         setTradeFeeA(fetchedFeeA.toString());
         setTradeFeeB(fetchedFeeB.toString());
 
-        // Salva o ativo no DB se for novo
-        await addNewAssetToDB(exchangeA, assetA, assetsA, setAssetsA);
-        await addNewAssetToDB(exchangeB, assetA, assetsB, setAssetsB);
+        await addNewAssetToDB(exchangeA, assetA);
+        await addNewAssetToDB(exchangeB, assetA);
         
-        // 2. Analisar redes (após buscar preços)
         const netAnalysisResult = await handleNetworkAnalysis();
 
-        // 3. Chamar a IA para análise de investimento (após análise de rede)
-        // Criamos um objeto de resultados de cálculo temporário aqui, pois o estado pode não estar atualizado ainda
         const tempCalculationResults = (() => {
             const pA = fetchedPriceA;
             const pB = fetchedPriceB;
@@ -422,15 +415,14 @@ export default function ArbitrageCalculator() {
           title: "Falha ao Buscar Preços",
           description: error instanceof Error ? error.message : "Ocorreu um erro desconhecido. Verifique se o par existe em ambas as exchanges.",
         });
-        // Limpa os preços em caso de erro para não mostrar dados inconsistentes
         setPriceA("");
         setPriceB("");
       }
     });
   }, [
-    assetA, exchangeA, exchangeB, toast, assetsA, assetsB, isFetchingRealPrice, 
+    assetA, exchangeA, exchangeB, toast, isFetchingRealPrice, 
     setPriceA, setPriceB, setTradeFeeA, setTradeFeeB, handleNetworkAnalysis, initialInvestment,
-    addNewAssetToDB, setAssetsA, setAssetsB
+    addNewAssetToDB
   ]);
   
   const diagnosisStyles = {
@@ -446,7 +438,6 @@ export default function ArbitrageCalculator() {
     <Card className="w-full max-w-2xl bg-card/50 backdrop-blur-sm border-primary/20 shadow-primary/10 shadow-2xl">
       <CardContent className="p-4 sm:p-6">
         
-        {/* Painel de Controle Principal */}
         <div className="bg-background/50 p-4 rounded-lg border border-border/50 space-y-4 mb-6">
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
               <Label className="text-sm font-medium text-primary">Ferramentas de Análise</Label>
@@ -459,13 +450,11 @@ export default function ArbitrageCalculator() {
             </div>
         </div>
 
-        {/* Investimento Inicial */}
         <div className="grid gap-2 mb-6 p-4 rounded-lg border border-border/50 bg-background/30">
           <Label className="text-xs text-muted-foreground" htmlFor="initial-investment">Investimento Inicial (USDT)</Label>
           <Input id="initial-investment" type="number" placeholder="100" value={initialInvestment} onChange={e => setInitialInvestment(e.target.value)} disabled={isAnyLoading} className="font-bold text-2xl h-12 p-2"/>
         </div>
         
-        {/* Ativo a ser negociado */}
         <div className="grid gap-2 mb-6">
             <Label className="text-sm font-medium">Ativo para Arbitragem</Label>
             <AssetCombobox
@@ -477,9 +466,7 @@ export default function ArbitrageCalculator() {
             />
         </div>
         
-        {/* Etapas de Troca */}
         <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] items-start gap-4 mb-6">
-            {/* Etapa 1: Compra */}
             <div className="p-4 rounded-lg border border-border/50 bg-background/30 space-y-4 h-full">
                 <Label className="text-xs text-muted-foreground">Etapa 1: Comprar em</Label>
                 <div className="grid gap-2">
@@ -506,7 +493,6 @@ export default function ArbitrageCalculator() {
                 <ChevronsRight className="w-8 h-8 text-primary/50 shrink-0 mx-2 transform md:rotate-0"/>
             </div>
             
-            {/* Etapa 2: Venda */}
             <div className="p-4 rounded-lg border border-border/50 bg-background/30 space-y-4 h-full">
                 <Label className="text-xs text-muted-foreground">Etapa 2: Vender em</Label>
                 <div className="grid gap-2">
@@ -603,9 +589,9 @@ export default function ArbitrageCalculator() {
           </div>
 
         <div className="flex flex-col sm:flex-row gap-2 pt-6 border-t border-border/50 mt-6">
-          <Button onClick={handleExample} variant="outline" className="w-full" disabled={isAnyLoading}><TestTube /> Exemplo</Button>
-          <Button onClick={handleClear} variant="outline" className="w-full" disabled={isAnyLoading}><Trash/> Limpar Preços</Button>
-          <Button onClick={handleReset} variant="ghost" className="w-full" disabled={isAnyLoading}><RefreshCcw /> Reset</Button>
+          <Button onClick={handleExample} variant="outline" className="w-full" disabled={isAnyLoading || isPriceLoading}><TestTube className="mr-2 h-4 w-4" /> Exemplo</Button>
+          <Button onClick={handleClear} variant="outline" className="w-full" disabled={isAnyLoading}><Trash className="mr-2 h-4 w-4"/> Limpar Preços</Button>
+          <Button onClick={handleReset} variant="ghost" className="w-full" disabled={isAnyLoading}><RefreshCcw className="mr-2 h-4 w-4" /> Reset</Button>
         </div>
       </CardContent>
     </Card>
