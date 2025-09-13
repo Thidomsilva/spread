@@ -54,38 +54,27 @@ const getExchangeAssetsFlow = ai.defineFlow(
     const localAssets = simulatedAssetDb[input.exchange] || [];
 
     // 2. Tenta buscar os ativos do Firestore em segundo plano.
-    try {
+    // Esta operação é "fire-and-forget" para não atrasar a resposta principal.
+    (async () => {
+      try {
         const dbAssets = await getAssetsFromDB({ exchange: input.exchange });
-        if (dbAssets.assets.length > 0) {
-            console.log(`Ativos para ${input.exchange} carregados do Firestore.`);
-            // Combina e remove duplicatas, dando preferência aos dados do DB
-            const combined = [...new Set([...dbAssets.assets, ...localAssets])];
-            return { assets: combined.sort() };
-        }
-    } catch (error) {
-        console.error(`Erro ao buscar ativos do Firestore para ${input.exchange}. Usando apenas a lista local.`, error);
-        // A falha aqui não é crítica, pois já temos a lista local para retornar.
-    }
-
-    // 3. Se o DB estiver vazio ou a busca falhar, retorna a lista local imediatamente.
-    console.log(`Usando lista simulada para ${input.exchange}. O salvamento no DB ocorrerá em segundo plano se necessário.`);
-    
-    // 4. Salva os ativos locais no Firestore se eles ainda não estiverem lá.
-    // Isso é feito em "segundo plano" (fire-and-forget) para não atrasar a resposta ao usuário.
-    if (localAssets.length > 0) {
-        (async () => {
-            try {
-                for (const asset of localAssets) {
-                    // addAssetToDB já contém a lógica para não duplicar.
-                    await addAssetToDB({ exchange: input.exchange, asset });
-                }
-                console.log(`Lista de ativos simulados para ${input.exchange} verificada/salva no Firestore.`);
-            } catch (error) {
-                console.error(`Erro ao salvar ativos simulados no Firestore em segundo plano para ${input.exchange}:`, error);
+        if (dbAssets.assets.length === 0 && localAssets.length > 0) {
+            console.log(`Banco de dados para ${input.exchange} está vazio. Tentando salvar a lista local...`);
+            // Se o DB estiver vazio, salva a lista local nele.
+            for (const asset of localAssets) {
+                // addAssetToDB já contém a lógica para não duplicar.
+                await addAssetToDB({ exchange: input.exchange, asset });
             }
-        })();
-    }
-
+            console.log(`Lista de ativos simulados para ${input.exchange} salva no Firestore em segundo plano.`);
+        } else {
+            console.log(`Ativos para ${input.exchange} já existem no DB ou a lista local está vazia. Nenhuma ação necessária.`);
+        }
+      } catch (error) {
+          console.error(`Erro ao verificar/salvar ativos no Firestore em segundo plano para ${input.exchange}:`, error);
+      }
+    })();
+    
+    // 3. Retorna a lista local imediatamente, sem esperar pelo banco de dados.
     return { assets: localAssets.sort() };
   }
 );
