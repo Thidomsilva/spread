@@ -25,8 +25,8 @@ export default function ArbitrageCalculator() {
   const [tradeFee, setTradeFee] = useState("0");
 
   // Triangulation States
-  const [triPriceA, setTriPriceA] = useState(""); // Compra
-  const [triPriceB, setTriPriceB] = useState(""); // Venda
+  const [triPriceA, setTriPriceA] = useState("");
+  const [triPriceB, setTriPriceB] = useState("");
   const [factorAB, setFactorAB] = useState("0.0133");
   const [initialUSDT, setInitialUSDT] = useState("100");
   const [tradeFeeA, setTradeFeeA] = useState("0");
@@ -36,7 +36,6 @@ export default function ArbitrageCalculator() {
   const [assetA, setAssetA] = useState("JASMY");
   const [assetB, setAssetB] = useState("PEPE");
 
-
   const formatNumber = (num: number, minDigits = 2, maxDigits = 4) => {
     if (isNaN(num)) return '0';
     return num.toLocaleString('en-US', {
@@ -45,7 +44,6 @@ export default function ArbitrageCalculator() {
     });
   };
 
-  // Simple Spread Calculations
   const simpleResults = useMemo(() => {
     const pA = parseFloat(priceA);
     const pB = parseFloat(priceB);
@@ -69,7 +67,6 @@ export default function ArbitrageCalculator() {
     return { absoluteDifference, spreadPercentage, netSpreadPercentage, estimatedProfit, diagnosis };
   }, [priceA, priceB, baseAmount, tradeFee]);
 
-  // Triangulation Calculations
   const triResults = useMemo(() => {
     const pA = parseFloat(triPriceA);
     const pB = parseFloat(triPriceB);
@@ -94,7 +91,6 @@ export default function ArbitrageCalculator() {
     else if (spread < -0.1) diagnosis = 'negative';
     else diagnosis = 'neutral';
     
-    // Parity calculations
     const A_equivalente = pB * factor;
     const delta_relativo = pA > 0 ? ((A_equivalente / pA) - 1) * 100 : 0;
     const preco_B_break_even = factor > 0 ? pA / factor : 0;
@@ -119,6 +115,8 @@ export default function ArbitrageCalculator() {
       setBaseAmount("100");
       setTradeFee("0");
     } else {
+      setAssetA("JASMY");
+      setAssetB("PEPE");
       setTriPriceA("0.0067035");
       setTriPriceB("0.4920");
       setFactorAB("0.0133");
@@ -135,6 +133,8 @@ export default function ArbitrageCalculator() {
       setBaseAmount("100");
       setTradeFee("0");
     } else {
+      setAssetA("JASMY");
+      setAssetB("PEPE");
       setTriPriceA("");
       setTriPriceB("");
       setFactorAB("0.0133");
