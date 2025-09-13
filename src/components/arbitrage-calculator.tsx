@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { RefreshCcw, TestTube, ArrowRight, Sparkles, Search, Trash, ChevronsRight } from "lucide-react";
+import { RefreshCcw, TestTube, ArrowRight, Sparkles, Search, Trash, ChevronsRight, HelpCircle } from "lucide-react";
 import { getMarketPrice } from "@/ai/flows/get-market-price";
 import { networkAnalysis } from "@/ai/flows/network-analysis";
 import { getExchangeAssets } from "@/ai/flows/get-exchange-assets";
@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { ChevronsUpDown, Check } from "lucide-react";
 
@@ -78,12 +79,14 @@ function AssetCombobox({
   assets,
   isLoading,
   disabled,
+  placeholder = "Selecione ou digite",
 }: {
   value: string;
   onChange: (value: string) => void;
   assets: string[];
   isLoading: boolean;
   disabled: boolean;
+  placeholder?: string;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -101,7 +104,7 @@ function AssetCombobox({
             type="text"
             value={value}
             onChange={(e) => onChange(e.target.value.toUpperCase())}
-            placeholder={isLoading ? "Carregando..." : "Selecione ou digite"}
+            placeholder={isLoading ? "Carregando..." : placeholder}
             className="w-full border-0 focus-visible:ring-0 focus-visible:ring-offset-0 p-0 font-bold text-lg bg-transparent"
             disabled={disabled}
             onClick={(e) => e.stopPropagation()} 
@@ -157,8 +160,10 @@ export default function ArbitrageCalculator() {
   const [tradeFeeB, setTradeFeeB] = usePersistentState("tradeFeeB", "0.1");
   const [exchangeA, setExchangeA] = usePersistentState("exchangeA", EXCHANGES[0]);
   const [exchangeB, setExchangeB] = usePersistentState("exchangeB", EXCHANGES[1]);
+  const [conversionFactor, setConversionFactor] = usePersistentState("conversionFactor", "1");
 
   const [assetA, setAssetA] = usePersistentState("assetA", "JASMY");
+  const [assetB, setAssetB] = usePersistentState("assetB", "PEPE");
   
   const [networkAnalysisResult, setNetworkAnalysisResult] = useState<NetworkAnalysisOutput | null>(null);
   const [aiCommentary, setAiCommentary] = useState<string | null>(null);
@@ -167,19 +172,18 @@ export default function ArbitrageCalculator() {
   const [assetsB, setAssetsB] = useState<string[]>([]);
 
   const fetchAssets = useCallback(async (exchange: string, assetSetter: React.Dispatch<React.SetStateAction<string[]>>, startTransitionFunc: React.TransitionStartFunction) => {
-    startTransitionFunc(async () => {
-      try {
-        const result = await getExchangeAssets({ exchange });
-        assetSetter(result.assets);
-      } catch (error) {
-        console.error(`Failed to fetch assets for ${exchange}:`, error);
-        assetSetter([]);
-        toast({
-          variant: "destructive",
-          title: `Falha ao buscar ativos da ${exchange}`,
-          description: error instanceof Error ? error.message : "Ocorreu um erro desconhecido.",
+    startTransitionFunc(() => {
+      getExchangeAssets({ exchange })
+        .then(result => assetSetter(result.assets))
+        .catch(error => {
+          console.error(`Failed to fetch assets for ${exchange}:`, error);
+          assetSetter([]);
+          toast({
+            variant: "destructive",
+            title: `Falha ao buscar ativos da ${exchange}`,
+            description: error instanceof Error ? error.message : "Ocorreu um erro desconhecido.",
+          });
         });
-      }
     });
   }, [toast]);
 
@@ -207,20 +211,24 @@ export default function ArbitrageCalculator() {
   const calculationResults = useMemo(() => {
     const pA = parseFloat(priceA);
     const pB = parseFloat(priceB);
+    const factor = parseFloat(conversionFactor);
     const initialUSDTValue = parseFloat(initialInvestment);
     const feeA = parseFloat(tradeFeeA) / 100;
     const feeB = parseFloat(tradeFeeB) / 100;
 
-    if (isNaN(pA) || isNaN(pB) || pA <= 0 || pB <= 0 || isNaN(initialUSDTValue) || initialUSDTValue <=0) {
+    if (isNaN(pA) || isNaN(pB) || pA <= 0 || pB <= 0 || isNaN(initialUSDTValue) || initialUSDTValue <=0 || isNaN(factor) || factor <= 0) {
       return null;
     }
     
-    // 1. Compra o Ativo A com o investimento inicial (considerando a taxa de compra)
+    // 1. Compra o Ativo A com o investimento inicial
     const amountOfAssetBought = (initialUSDTValue / pA) * (1 - feeA);
     
-    // 2. Vende a mesma quantidade de Ativo A na outra exchange (considerando a taxa de venda)
-    const finalUSDTValue = amountOfAssetBought * pB * (1 - feeB);
+    // 2. Troca (swap) o Ativo A pelo Ativo B usando o fator de conversão
+    const amountOfAssetBSwapped = amountOfAssetBought * factor;
     
+    // 3. Vende o Ativo B para obter o valor final em USDT
+    const finalUSDTValue = amountOfAssetBSwapped * pB * (1 - feeB);
+
     const spread = initialUSDTValue > 0 ? ((finalUSDTValue / initialUSDTValue) - 1) * 100 : 0;
     
     let diagnosis: DiagnosisStatus;
@@ -231,32 +239,37 @@ export default function ArbitrageCalculator() {
     return {
       initialUSDTValue,
       amountOfAssetBought,
+      amountOfAssetBSwapped,
       finalUSDTValue,
       spread,
       diagnosis,
     };
-  }, [priceA, priceB, initialInvestment, tradeFeeA, tradeFeeB]);
+  }, [priceA, priceB, initialInvestment, tradeFeeA, tradeFeeB, conversionFactor]);
 
   const handleExample = () => {
     setAssetA("JASMY");
+    setAssetB("PEPE");
     setExchangeA("MEXC");
     setExchangeB("Gate.io");
     setPriceA("0.0315");
-    setPriceB("0.0325");
+    setPriceB("0.000012");
     setInitialInvestment("1000");
     setTradeFeeA("0.1");
     setTradeFeeB("0.2");
+    setConversionFactor("2500"); // Exemplo: 1 JASMY = 2500 PEPE
     setNetworkAnalysisResult(null);
     setAiCommentary(null);
   };
   
   const handleReset = () => {
     setAssetA("JASMY");
+    setAssetB("PEPE");
     setPriceA("");
     setPriceB("");
     setInitialInvestment("100");
     setTradeFeeA("0.1");
     setTradeFeeB("0.1");
+    setConversionFactor("1");
     setNetworkAnalysisResult(null);
     setAiCommentary(null);
   };
@@ -290,7 +303,7 @@ export default function ArbitrageCalculator() {
         }
         try {
             const input = {
-              asset: assetA,
+              asset: assetA, // A transferência é do ativo A
               sourceExchange: exchangeA,
               destinationExchange: exchangeB,
             };
@@ -318,27 +331,28 @@ export default function ArbitrageCalculator() {
   
 
   const addNewAssetToDB = useCallback(async (exchange: string, asset: string) => {
+    // Determine which asset list to check based on the exchange
     const assetList = exchange === exchangeA ? assetsA : assetsB;
     const setAssetList = exchange === exchangeA ? setAssetsA : setAssetsB;
-
+  
     if (asset && !assetList.some(a => a.toUpperCase() === asset.toUpperCase())) {
       try {
         await addAssetToDB({ exchange, asset });
-        setAssetList(prevAssets => [...prevAssets, asset.toUpperCase()].sort());
+        setAssetList(prevAssets => [...new Set([...prevAssets, asset.toUpperCase()])].sort());
         toast({
           title: "Novo Ativo Salvo!",
           description: `${asset.toUpperCase()} foi adicionado à lista da ${exchange}.`,
         });
       } catch (error) {
+        // Silently fail to avoid interrupting the user flow
         console.error(`Falha ao salvar o novo ativo ${asset} no DB:`, error);
-        // Não mostrar toast de erro para não poluir a interface
       }
     }
-  }, [exchangeA, exchangeB, assetsA, assetsB, toast]);
+  }, [assetsA, assetsB, exchangeA, exchangeB, toast]);
 
 
  const handleFetchRealPrices = useCallback(() => {
-    if (!assetA || !exchangeA || !exchangeB || isFetchingRealPrice) return;
+    if (!assetA || !assetB || !exchangeA || !exchangeB || isFetchingRealPrice) return;
     
     startRealPriceTransition(async () => {
       setPriceA("");
@@ -349,7 +363,7 @@ export default function ArbitrageCalculator() {
       try {
         const [priceResultA, priceResultB] = await Promise.all([
           getMarketPrice({ asset: assetA, exchange: exchangeA }),
-          getMarketPrice({ asset: assetA, exchange: exchangeB })
+          getMarketPrice({ asset: assetB, exchange: exchangeB })
         ]);
 
         const fetchedPriceA = priceResultA;
@@ -365,27 +379,31 @@ export default function ArbitrageCalculator() {
         setTradeFeeB(fetchedFeeB.toString());
 
         await addNewAssetToDB(exchangeA, assetA);
-        await addNewAssetToDB(exchangeB, assetA);
+        await addNewAssetToDB(exchangeB, assetB);
         
         const netAnalysisResult = await handleNetworkAnalysis();
-
+        
+        // This is a temporary calculation just to feed the AI analysis
         const tempCalculationResults = (() => {
             const pA = fetchedPriceA;
             const pB = fetchedPriceB;
+            const fact = parseFloat(conversionFactor);
             const initialUSDT = parseFloat(initialInvestment);
             const tFeeA = fetchedFeeA / 100;
             const tFeeB = fetchedFeeB / 100;
             
-            if (isNaN(pA) || isNaN(pB) || pA <= 0 || pB <= 0 || isNaN(initialUSDT) || initialUSDT <=0) return null;
+            if (isNaN(pA) || isNaN(pB) || pA <= 0 || pB <= 0 || isNaN(initialUSDT) || initialUSDT <=0 || isNaN(fact) || fact <= 0) return null;
             
             const amountOfAssetBought = (initialUSDT / pA) * (1 - tFeeA);
-            const finalUSDTValue = amountOfAssetBought * pB * (1 - tFeeB);
+            const amountOfAssetBSwapped = amountOfAssetBought * fact;
+            const finalUSDTValue = amountOfAssetBSwapped * pB * (1 - tFeeB);
             const spread = initialUSDT > 0 ? ((finalUSDTValue / initialUSDT) - 1) * 100 : 0;
             return { finalUSDTValue, spread };
         })();
 
         if (tempCalculationResults && netAnalysisResult) {
             startInvestmentAnalysisTransition(async () => {
+              // Note: We are now passing assetA to the analysis, as it's the one being transferred
               const investmentInput: InvestmentAnalysisInput = {
                 assetA: assetA,
                 exchangeA: exchangeA,
@@ -413,16 +431,16 @@ export default function ArbitrageCalculator() {
         toast({
           variant: "destructive",
           title: "Falha ao Buscar Preços",
-          description: error instanceof Error ? error.message : "Ocorreu um erro desconhecido. Verifique se o par existe em ambas as exchanges.",
+          description: error instanceof Error ? error.message : "Ocorreu um erro desconhecido. Verifique se os pares existem em suas respectivas exchanges.",
         });
         setPriceA("");
         setPriceB("");
       }
     });
   }, [
-    assetA, exchangeA, exchangeB, toast, isFetchingRealPrice, 
+    assetA, assetB, exchangeA, exchangeB, toast, isFetchingRealPrice, 
     setPriceA, setPriceB, setTradeFeeA, setTradeFeeB, handleNetworkAnalysis, initialInvestment,
-    addNewAssetToDB
+    addNewAssetToDB, conversionFactor,
   ]);
   
   const diagnosisStyles = {
@@ -435,7 +453,7 @@ export default function ArbitrageCalculator() {
   const isPriceLoading = isFetchingRealPrice;
 
   return (
-    <Card className="w-full max-w-2xl bg-card/50 backdrop-blur-sm border-primary/20 shadow-primary/10 shadow-2xl">
+    <Card className="w-full max-w-4xl bg-card/50 backdrop-blur-sm border-primary/20 shadow-primary/10 shadow-2xl">
       <CardContent className="p-4 sm:p-6">
         
         <div className="bg-background/50 p-4 rounded-lg border border-border/50 space-y-4 mb-6">
@@ -450,25 +468,45 @@ export default function ArbitrageCalculator() {
             </div>
         </div>
 
-        <div className="grid gap-2 mb-6 p-4 rounded-lg border border-border/50 bg-background/30">
-          <Label className="text-xs text-muted-foreground" htmlFor="initial-investment">Investimento Inicial (USDT)</Label>
-          <Input id="initial-investment" type="number" placeholder="100" value={initialInvestment} onChange={e => setInitialInvestment(e.target.value)} disabled={isAnyLoading} className="font-bold text-2xl h-12 p-2"/>
+        <div className="grid md:grid-cols-2 gap-4 mb-6">
+            <div className="grid gap-2 p-4 rounded-lg border border-border/50 bg-background/30">
+                <Label className="text-xs text-muted-foreground" htmlFor="initial-investment">Investimento Inicial (USDT)</Label>
+                <Input id="initial-investment" type="number" placeholder="100" value={initialInvestment} onChange={e => setInitialInvestment(e.target.value)} disabled={isAnyLoading} className="font-bold text-2xl h-12 p-2"/>
+            </div>
+            <div className="grid gap-2 p-4 rounded-lg border border-border/50 bg-background/30">
+                <Label className="text-xs text-muted-foreground flex items-center" htmlFor="conversion-factor">
+                    Fator de Conversão (A {'->'} B)
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <HelpCircle className="h-3 w-3 ml-1.5 cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Quantos Ativo B você recebe por 1 Ativo A.</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                </Label>
+                <Input id="conversion-factor" type="number" placeholder="1.0" value={conversionFactor} onChange={e => setConversionFactor(e.target.value)} disabled={isAnyLoading} className="font-bold text-2xl h-12 p-2"/>
+            </div>
         </div>
         
-        <div className="grid gap-2 mb-6">
-            <Label className="text-sm font-medium">Ativo para Arbitragem</Label>
-            <AssetCombobox
-                value={assetA}
-                onChange={setAssetA}
-                assets={[...new Set([...assetsA, ...assetsB])].sort()}
-                isLoading={isFetchingAssetsA || isFetchingAssetsB}
-                disabled={isAnyLoading}
-            />
-        </div>
         
         <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] items-start gap-4 mb-6">
+            {/* ETAPA 1: COMPRA */}
             <div className="p-4 rounded-lg border border-border/50 bg-background/30 space-y-4 h-full">
-                <Label className="text-xs text-muted-foreground">Etapa 1: Comprar em</Label>
+                <Label className="text-xs text-muted-foreground">Etapa 1: Comprar Ativo A</Label>
+                <div className="grid gap-2">
+                    <Label className="text-xs" htmlFor="asset-a">Ativo A</Label>
+                     <AssetCombobox
+                        value={assetA}
+                        onChange={setAssetA}
+                        assets={assetsA}
+                        isLoading={isFetchingAssetsA}
+                        disabled={isAnyLoading}
+                        placeholder="Ativo A"
+                    />
+                </div>
                 <div className="grid gap-2">
                     <Label className="text-xs" htmlFor="exchange-a">Exchange de Compra</Label>
                     <Select value={exchangeA} onValueChange={setExchangeA} disabled={isAnyLoading}>
@@ -493,8 +531,20 @@ export default function ArbitrageCalculator() {
                 <ChevronsRight className="w-8 h-8 text-primary/50 shrink-0 mx-2 transform md:rotate-0"/>
             </div>
             
+            {/* ETAPA 2: VENDA */}
             <div className="p-4 rounded-lg border border-border/50 bg-background/30 space-y-4 h-full">
-                <Label className="text-xs text-muted-foreground">Etapa 2: Vender em</Label>
+                <Label className="text-xs text-muted-foreground">Etapa 2: Vender Ativo B</Label>
+                 <div className="grid gap-2">
+                    <Label className="text-xs" htmlFor="asset-b">Ativo B</Label>
+                     <AssetCombobox
+                        value={assetB}
+                        onChange={setAssetB}
+                        assets={assetsB}
+                        isLoading={isFetchingAssetsB}
+                        disabled={isAnyLoading}
+                        placeholder="Ativo B"
+                    />
+                </div>
                 <div className="grid gap-2">
                     <Label className="text-xs" htmlFor="exchange-b">Exchange de Venda</Label>
                     <Select value={exchangeB} onValueChange={setExchangeB} disabled={isAnyLoading}>
@@ -510,8 +560,8 @@ export default function ArbitrageCalculator() {
                     <Label className="text-xs" htmlFor="trade-fee-b">Taxa de Negociação (%)</Label>
                     <Input id="trade-fee-b" type="number" value={tradeFeeB} onChange={e => setTradeFeeB(e.target.value)} disabled={isAnyLoading} />
                 </div>
-                {calculationResults && (
-                    <p className="text-xs text-muted-foreground pt-1">Valor de venda ≈ <span className="font-bold text-white">${formatNumber(calculationResults.finalUSDTValue, 2, 2)}</span></p>
+                 {calculationResults && (
+                    <p className="text-xs text-muted-foreground pt-1">Swap gera ≈ <span className="font-bold text-white">{formatNumber(calculationResults.amountOfAssetBSwapped, 2, 6)} {assetB}</span></p>
                 )}
             </div>
         </div>
@@ -519,14 +569,14 @@ export default function ArbitrageCalculator() {
            {(isAnalyzingNetworks || isAnalyzingInvestment || isPriceLoading) && (
              <div className="flex items-center justify-center text-sm text-muted-foreground my-4">
                 <Sparkles className="animate-spin mr-2 h-4 w-4" />
-                {isPriceLoading ? 'Buscando preços...' : isAnalyzingNetworks ? `Analisando redes...` : 'Consultor IA analisando a operação...'}
+                {isPriceLoading ? 'Buscando preços...' : isAnalyzingNetworks ? `Analisando redes de transferência para ${assetA}...` : 'Consultor IA analisando a operação...'}
               </div>
            )}
 
             {networkAnalysisResult && (
               <div className={`text-center p-3 my-4 rounded-md border ${networkAnalysisResult.isCompatible ? 'border-success/50 bg-success/10' : 'border-destructive/50 bg-destructive/10'}`}>
                 <p className={`font-bold text-lg ${networkAnalysisResult.isCompatible ? 'text-success' : 'text-destructive'}`}>
-                  {networkAnalysisResult.isCompatible ? '✅ Compatível' : '❌ Incompatível'}
+                  {networkAnalysisResult.isCompatible ? `✅ Transferência de ${assetA} Compatível` : `❌ Transferência de ${assetA} Incompatível`}
                 </p>
                 <p className="text-xs text-muted-foreground">{networkAnalysisResult.reasoning}</p>
                 {networkAnalysisResult.isCompatible && (
@@ -574,7 +624,11 @@ export default function ArbitrageCalculator() {
                         <div className="space-y-2 bg-background/50 p-3 rounded-md border border-border/50">
                             <h4 className="font-bold text-foreground text-sm pb-1">Preços e Taxas</h4>
                             <div className="flex justify-between"><span>Preço Compra ({assetA} / {exchangeA}):</span> <span className="break-all">${formatNumber(parseFloat(priceA), 2, 8)}</span></div>
-                            <div className="flex justify-between"><span>Preço Venda ({assetA} / {exchangeB}):</span> <span className="break-all">${formatNumber(parseFloat(priceB), 2, 8)}</span></div>
+                            <div className="flex justify-between"><span>Preço Venda ({assetB} / {exchangeB}):</span> <span className="break-all">${formatNumber(parseFloat(priceB), 2, 8)}</span></div>
+                            <div className="flex justify-between border-t border-border/50 pt-2 mt-2">
+                                <span>Fator Conversão ({assetA}→{assetB}):</span>
+                                <span>{formatNumber(parseFloat(conversionFactor), 2, 6)}</span>
+                            </div>
                              <div className="flex justify-between border-t border-border/50 pt-2 mt-2"><span>Taxas Totais (Estimado):</span> <span>{tradeFeeA}% + {tradeFeeB}%</span></div>
                         </div>
                       </div>
@@ -597,3 +651,5 @@ export default function ArbitrageCalculator() {
     </Card>
   );
 }
+
+    
