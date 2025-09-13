@@ -255,7 +255,7 @@ export default function ArbitrageCalculator() {
                       <ArrowRight className="w-4 h-4 text-muted-foreground/50 shrink-0"/>
                       <Input id="asset-b" placeholder="Ativo B" value={assetB} onChange={e => setAssetB(e.target.value.toUpperCase())} className="text-center"/>
                       <Button onClick={handleAiAnalysis} disabled={isPending} size="icon" variant="outline">
-                          <Sparkles className={`transition-all ${isPending ? 'animate-spin' : ''}`}/>
+                          <Sparkles className={isPending ? 'animate-spin' : ''}/>
                       </Button>
                    </div>
               </div>
