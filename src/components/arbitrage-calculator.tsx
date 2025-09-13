@@ -397,7 +397,7 @@ export default function ArbitrageCalculator() {
                 <div className="flex items-center gap-2">
                   <Button onClick={handleAiAnalysis} disabled={isAnyLoading || isPriceLoading} size="sm" variant="outline" className="h-8">
                       <Sparkles className={isPending ? 'animate-spin' : ''}/>
-                      Preços (IA)
+                      Simular com IA
                   </Button>
                   <Button onClick={handleFetchRealPrices} disabled={isAnyLoading || isPriceLoading || autoRefresh} size="sm" variant="default" className="h-8">
                       <Search className={isPriceLoading ? 'animate-spin' : ''}/>
