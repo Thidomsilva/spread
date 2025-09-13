@@ -10,6 +10,7 @@ import { liveParityComparison, LiveParityComparisonInput } from "@/ai/flows/live
 import { getMarketPrice, GetMarketPriceInput } from "@/ai/flows/get-market-price";
 import { networkAnalysis, NetworkAnalysisInput, NetworkAnalysisOutput } from "@/ai/flows/network-analysis";
 import { getExchangeAssets } from "@/ai/flows/get-exchange-assets";
+import { addAssetToDB } from "@/ai/flows/manage-assets-db";
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -175,7 +176,7 @@ export default function ArbitrageCalculator() {
     const spread = usdtInitial > 0 ? ((USDT_final_liquido / usdtInitial) - 1) * 100 : 0;
     
     let diagnosis: DiagnosisStatus;
-    if (spread > 0.0001) diagnosis = 'positive'; // Adicionada uma pequena margem para evitar imprecisão de float
+    if (spread > 0.0001) diagnosis = 'positive';
     else if (spread < -0.0001) diagnosis = 'negative';
     else diagnosis = 'neutral';
     
@@ -254,6 +255,25 @@ export default function ArbitrageCalculator() {
     });
   };
 
+  // Função para adicionar um novo ativo descoberto ao DB
+  const addNewAssetToDB = async (exchange: string, asset: string, assetList: string[], setAssetList: (assets: string[]) => void) => {
+    if (asset && !assetList.some(a => a.toUpperCase() === asset.toUpperCase())) {
+      try {
+        await addAssetToDB({ exchange, asset });
+        // Adiciona o novo ativo à lista local para evitar nova busca
+        setAssetList([...assetList, asset.toUpperCase()].sort());
+        toast({
+          title: "Novo Ativo Salvo!",
+          description: `${asset.toUpperCase()} foi adicionado à lista da ${exchange}.`,
+        });
+      } catch (error) {
+        console.error(`Falha ao salvar o novo ativo ${asset} no DB:`, error);
+        // Não mostrar toast de erro para não poluir a interface
+      }
+    }
+  };
+
+
   const handleFetchRealPrices = useCallback(() => {
     startRealPriceTransition(async () => {
       setNetworkAnalysisResult(null);
@@ -264,6 +284,8 @@ export default function ArbitrageCalculator() {
         };
         const priceA = await getMarketPrice(inputA);
         setTriPriceA(priceA.toString());
+        // Se a busca for bem-sucedida, tentamos adicionar o ativo ao DB
+        await addNewAssetToDB(exchangeA, assetA, assetsA, setAssetsA);
         
         const inputB: GetMarketPriceInput = { 
           exchange: exchangeB as any, 
@@ -271,6 +293,8 @@ export default function ArbitrageCalculator() {
         };
         const priceB = await getMarketPrice(inputB);
         setTriPriceB(priceB.toString());
+        // Se a busca for bem-sucedida, tentamos adicionar o ativo ao DB
+        await addNewAssetToDB(exchangeB, assetB, assetsB, setAssetsB);
 
         toast({
             title: "Preços Reais Obtidos",
@@ -286,7 +310,7 @@ export default function ArbitrageCalculator() {
         })
       }
     });
-  }, [assetA, assetB, exchangeA, exchangeB, toast]);
+  }, [assetA, assetB, exchangeA, exchangeB, toast, assetsA, assetsB]);
 
   const handleNetworkAnalysis = useCallback(() => {
     startNetworkAnalysisTransition(async () => {

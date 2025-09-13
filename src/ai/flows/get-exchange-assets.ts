@@ -9,6 +9,8 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
+import { getAssetsFromDB, addAssetToDB } from './manage-assets-db';
+
 
 const GetExchangeAssetsInputSchema = z.object({
   exchange: z.enum(['MEXC', 'Bitmart', 'Gate.io']),
@@ -44,23 +46,42 @@ const getExchangeAssetsFlow = ai.defineFlow(
       `Buscando todos os ativos para a exchange ${input.exchange}`
     );
 
-    // !! NOTA DE SIMULAÇÃO !!
-    // Em um aplicativo real, esta função faria uma chamada de API para a exchange
-    // para obter a lista completa de ativos. Para agilizar, estamos simulando a resposta.
-    const assetDb: Record<string, string[]> = {
+    // 1. Tenta buscar os ativos do Firestore
+    try {
+        const dbAssets = await getAssetsFromDB({ exchange: input.exchange });
+        if (dbAssets.assets.length > 0) {
+            console.log(`Ativos para ${input.exchange} carregados do Firestore.`);
+            return { assets: dbAssets.assets.sort() };
+        }
+    } catch (error) {
+        console.error(`Erro ao buscar ativos do Firestore para ${input.exchange}:`, error);
+        // Continua para o fallback se houver erro no DB
+    }
+
+    // 2. Fallback: Usa a lista simulada se o DB estiver vazio
+    console.log(`Nenhum ativo encontrado no Firestore para ${input.exchange}. Usando lista simulada e populando o DB.`);
+    const simulatedAssetDb: Record<string, string[]> = {
         MEXC: ['JASMY', 'PEPE', 'BTC', 'ETH', 'SOL', 'DOGE', 'SHIB', 'MATIC', 'AVAX', 'LINK'],
         Bitmart: ['JASMY', 'PEPE', 'BTC', 'ETH', 'SOL', 'DOGE', 'SHIB', 'TRX', 'LTC', 'XRP'],
         'Gate.io': ['JASMY', 'PEPE', 'BTC', 'ETH', 'SOL', 'ADA', 'DOT', 'XLM', 'BCH', 'FIL'],
     };
 
-    const assets = assetDb[input.exchange] || [];
-    
-    // Filtra apenas os pares que terminam com USDT e retorna o nome base
-    // Ex: Em uma API real, o retorno seria 'JASMYUSDT', e queremos apenas 'JASMY'
-    // Como estamos simulando, já retornamos a lista limpa.
+    const assetsToSave = simulatedAssetDb[input.exchange] || [];
 
-    return { assets: assets.sort() };
+    // 3. Salva os ativos simulados no Firestore para futuras buscas
+    if (assetsToSave.length > 0) {
+        try {
+            for (const asset of assetsToSave) {
+                // Adiciona um por um para usar a lógica de "não duplicar"
+                await addAssetToDB({ exchange: input.exchange, asset });
+            }
+            console.log(`Lista de ativos simulados para ${input.exchange} salva no Firestore.`);
+        } catch (error) {
+            console.error(`Erro ao salvar ativos simulados no Firestore para ${input.exchange}:`, error);
+            // Se o salvamento falhar, não impede o retorno dos dados para o usuário
+        }
+    }
+
+    return { assets: assetsToSave.sort() };
   }
 );
-
-    
