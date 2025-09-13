@@ -490,11 +490,7 @@ export default function ArbitrageCalculator() {
 
   return (
     <Card className="w-full max-w-lg bg-card/50 backdrop-blur-sm border-primary/20 shadow-primary/10 shadow-2xl">
-      <CardHeader className="text-center">
-        <CardTitle className="text-2xl">Calculadora de Arbitragem</CardTitle>
-        <CardDescription>Simule trocas de ativos entre exchanges e encontre oportunidades.</CardDescription>
-      </CardHeader>
-      <CardContent className="p-4 sm:p-6 pt-2">
+      <CardContent className="p-4 sm:p-6">
         
         {/* Painel de Controle Principal */}
         <div className="bg-background/50 p-4 rounded-lg border border-border/50 space-y-4 mb-6">
@@ -689,3 +685,5 @@ export default function ArbitrageCalculator() {
     </Card>
   );
 }
+
+    
