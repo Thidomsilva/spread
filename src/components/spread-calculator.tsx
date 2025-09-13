@@ -243,19 +243,49 @@ export default function SpreadCalculator() {
                     <AlertDescription>{calculations.error}</AlertDescription>
                   </Alert>
                 )}
-                {calculations && !calculations.error && calculations.xprBruto && (
+                {calculations && !calculations.error && (
+                  <div className="space-y-2 text-sm">
+                      <div className="flex justify-between items-center">
+                          <span>USDT Final:</span>
+                          <strong className={cn(
+                              "text-lg",
+                              calculations.usdtFinalLiquido > calculations.pInitialUsdt ? "text-green-500" : "text-red-500"
+                          )}>
+                              ${formatNumber(calculations.usdtFinalLiquido)}
+                          </strong>
+                      </div>
+                      <div className="flex justify-between items-center">
+                          <span>Spread Líquido:</span>
+                          <Badge variant={calculations.spreadPercentage > VIABILITY_THRESHOLD ? "default" : (calculations.spreadPercentage < -VIABILITY_THRESHOLD ? "destructive" : "secondary")}
+                              className={cn(
+                                  calculations.spreadPercentage > VIABILITY_THRESHOLD && "bg-success text-success-foreground hover:bg-success/90",
+                              )}>
+                              {formatNumber(calculations.spreadPercentage, { maximumFractionDigits: 2 })}%
+                          </Badge>
+                      </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardHeader>
+                <CardTitle>Detalhes da Operação</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {calculations && !calculations.error && calculations.xprBruto ? (
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between"><span>XPR Comprado (bruto):</span> <strong>{formatNumber(calculations.xprBruto)}</strong></div>
                     <div className="flex justify-between"><span>XPR (pós-swap fee):</span> <strong>{formatNumber(calculations.xprLiquidoParaSwap!)}</strong></div>
                     <div className="flex justify-between"><span>VAULTA Recebido:</span> <strong>{formatNumber(calculations.vaultaRecebido!)}</strong></div>
                   </div>
-                )}
+                ) : <div className="text-sm text-muted-foreground">Aguardando dados para exibir detalhes.</div>}
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader>
-                <CardTitle>Comparação de Paridade</CardTitle>
+                <CardTitle>Paridade de Mercado</CardTitle>
               </CardHeader>
               <CardContent>
                 {isParityLoading && <div className="flex items-center gap-2 text-muted-foreground"><Loader2 className="animate-spin w-4 h-4"/>Calculando...</div>}
