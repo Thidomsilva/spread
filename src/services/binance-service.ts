@@ -25,6 +25,11 @@ export async function getBinancePrice(
     const response = await fetch(`${BINANCE_API_URL}/ticker/price?symbol=${pair}`);
 
     if (!response.ok) {
+        if (response.status === 451) {
+            throw new Error(
+              `A Binance bloqueou a solicitação por razões legais (Erro 451). Isso pode ser devido à localização do servidor. Tente usar outra exchange.`
+            );
+        }
       // Tenta ler o corpo do erro para uma mensagem mais específica
       try {
         const errorData: BinanceErrorResponse = await response.json();
