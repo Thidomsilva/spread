@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { RefreshCcw, TestTube, ArrowRight, Eraser, Sparkles, Search, Network, ChevronsUpDown, Check, Trash, ChevronDown } from "lucide-react";
+import { RefreshCcw, TestTube, ArrowRight, Sparkles, Search, Network, ChevronsUpDown, Check, Trash } from "lucide-react";
 import { liveParityComparison, LiveParityComparisonInput } from "@/ai/flows/live-parity-comparison";
 import { getMarketPrice, GetMarketPriceInput } from "@/ai/flows/get-market-price";
 import { networkAnalysis, NetworkAnalysisInput, NetworkAnalysisOutput } from "@/ai/flows/network-analysis";
@@ -170,8 +170,8 @@ export default function ArbitrageCalculator() {
     }
     
     // 1. Compra o Ativo A com o investimento inicial (considerando a taxa)
-    const usdtToSpendOnA = initialUSDTValue * (1 - feeA);
-    const amountOfABought = usdtToSpendOnA / pA;
+    const usdtToSpendOnA = initialUSDTValue; // Sem taxa na compra inicial de USDT
+    const amountOfABought = usdtToSpendOnA / pA * (1- feeA);
 
     // 2. Com a quantidade de Ativo A, calcula quanto de Ativo B pode ser obtido.
     // Esta é uma troca direta baseada no fator de preço.
@@ -265,15 +265,17 @@ export default function ArbitrageCalculator() {
   const handleAiAnalysis = () => {
     startTransition(async () => {
       setNetworkAnalysisResult(null);
-        const input: LiveParityComparisonInput = { assetA, assetB };
+        const input: LiveParityComparisonInput = { assetA, assetB, exchangeA, exchangeB };
         try {
             const result = await liveParityComparison(input);
             if (result) {
               setPriceA(result.priceA.toString());
               setPriceB(result.priceB.toString());
+              setTradeFeeA(result.feeA.toString());
+              setTradeFeeB(result.feeB.toString());
               toast({
                 title: "Análise de IA Concluída",
-                description: "Os preços simulados foram preenchidos.",
+                description: "Os preços e taxas simulados foram preenchidos.",
               });
               handleNetworkAnalysis(); // Executa a análise de rede
             } else {

@@ -31,11 +31,37 @@ const getMarketData = ai.defineTool(
   }
 );
 
+// Ferramenta para a IA buscar informações (taxas) de uma exchange
+const getExchangeInfo = ai.defineTool(
+  {
+      name: 'getExchangeInfo',
+      description: 'Obtém informações sobre uma exchange, como suas taxas de negociação.',
+      inputSchema: z.object({
+          exchange: z.string().describe('O nome da exchange (ex: MEXC, Bitmart).'),
+      }),
+      outputSchema: z.object({
+          tradeFeePercent: z.number().describe('A taxa de negociação padrão em porcentagem (ex: 0.1).'),
+      }),
+  },
+  async ({ exchange }) => {
+      // Simulação das taxas de negociação
+      const fees: Record<string, number> = {
+          'MEXC': 0.1,
+          'Bitmart': 0.1,
+          'Gate.io': 0.2,
+      };
+      const fee = fees[exchange] || 0.1; // Padrão de 0.1% se não encontrada
+      return { tradeFeePercent: fee };
+  }
+);
+
 
 // Definição do esquema de entrada com os nomes dos ativos
 const LiveParityComparisonInputSchema = z.object({
   assetA: z.string().describe('O nome/símbolo do primeiro ativo (ex: JASMY)'),
   assetB: z.string().describe('O nome/símbolo do segundo ativo (ex: PEPE)'),
+  exchangeA: z.string().describe('A exchange onde o ativo A será negociado.'),
+  exchangeB: z.string().describe('A exchange onde o ativo B será negociado.'),
 });
 export type LiveParityComparisonInput = z.infer<
   typeof LiveParityComparisonInputSchema
@@ -45,6 +71,8 @@ export type LiveParityComparisonInput = z.infer<
 const LiveParityComparisonOutputSchema = z.object({
   priceA: z.number().describe('O preço de compra do Ativo A em USDT.'),
   priceB: z.number().describe('O preço de venda do Ativo B em USDT.'),
+  feeA: z.number().describe('A taxa de negociação da Exchange A em porcentagem.'),
+  feeB: z.number().describe('A taxa de negociação da Exchange B em porcentagem.'),
 });
 export type LiveParityComparisonOutput = z.infer<
   typeof LiveParityComparisonOutputSchema
@@ -62,16 +90,18 @@ const liveParityPrompt = ai.definePrompt({
   name: 'liveParityPrompt',
   input: {schema: LiveParityComparisonInputSchema},
   output: {schema: LiveParityComparisonOutputSchema},
-  tools: [getMarketData],
-  prompt: `Você é um expert em trading de criptomoedas e sua tarefa é encontrar preços de mercado para uma operação de arbitragem.
+  tools: [getMarketData, getExchangeInfo],
+  prompt: `Você é um expert em trading de criptomoedas e sua tarefa é encontrar preços de mercado e taxas para uma operação de arbitragem.
 
     Ativos da operação:
-    - Ativo de Compra: {{{assetA}}}
-    - Ativo de Venda: {{{assetB}}}
+    - Ativo de Compra: {{{assetA}}} na exchange {{{exchangeA}}}
+    - Ativo de Venda: {{{assetB}}} na exchange {{{exchangeB}}}
 
     Instruções:
     1.  **priceA**: Use a ferramenta \`getMarketData\` para encontrar o preço de COMPRA para o par {{{assetA}}}/USDT.
     2.  **priceB**: Use a ferramenta \`getMarketData\` para encontrar o preço de VENDA para o par {{{assetB}}}/USDT.
+    3.  **feeA**: Use a ferramenta \`getExchangeInfo\` para obter a taxa de negociação da exchange {{{exchangeA}}}.
+    4.  **feeB**: Use a ferramenta \`getExchangeInfo\` para obter a taxa de negociação da exchange {{{exchangeB}}}.
 
     Após obter todos os dados, retorne os valores no formato JSON especificado.`,
 });
