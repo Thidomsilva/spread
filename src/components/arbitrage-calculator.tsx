@@ -145,9 +145,9 @@ export default function ArbitrageCalculator() {
   };
 
   const handleClearFees = () => {
-      setTradeFee("0");
-      setTradeFeeA("0");
-      setTradeFeeB("0");
+    setTradeFee("0");
+    setTradeFeeA("0");
+    setTradeFeeB("0");
   };
 
   const handleAiAnalysis = () => {
