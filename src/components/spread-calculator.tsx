@@ -106,7 +106,7 @@ export default function SpreadCalculator() {
     const xprLiquidoParaSwap = xprPosCompra - FIXED_XPR_FEE;
 
     if (xprLiquidoParaSwap < 0) {
-      return { error: `XPR insuficiente após taxa fixa de ${FIXED_XPR_FEE} XPR.`, viability: "Não viável" as ViabilityStatus, xprBruto, xprPosCompra, xprLiquidoParaSwap };
+      return { error: `XPR insuficiente após taxa fixa de ${FIXED_XPR_FEE} XPR.`, viability: "Não viável" as ViabilityStatus, xprBruto, xprPosCompra, xprLiquidoParaSwap, pInitialUsdt: pInitialUsdt, usdtFinalLiquido: 0, spreadPercentage: -100, vaultaRecebido: 0 };
     }
 
     const vaultaRecebido = xprLiquidoParaSwap * pFactor;
