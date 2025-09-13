@@ -1,3 +1,7 @@
+import SpreadCalculator from '@/components/spread-calculator';
+
 export default function Home() {
-  return <></>;
+  return (
+    <SpreadCalculator />
+  );
 }
