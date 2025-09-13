@@ -348,7 +348,7 @@ export default function ArbitrageCalculator() {
   
 
   // Função para adicionar um novo ativo descoberto ao DB
-  const addNewAssetToDB = async (exchange: string, asset: string, assetList: string[], setAssetList: (assets: string[]) => void) => {
+  const addNewAssetToDB = useCallback(async (exchange: string, asset: string, assetList: string[], setAssetList: (assets: string[]) => void) => {
     if (asset && !assetList.some(a => a.toUpperCase() === asset.toUpperCase())) {
       try {
         await addAssetToDB({ exchange, asset });
@@ -363,7 +363,7 @@ export default function ArbitrageCalculator() {
         // Não mostrar toast de erro para não poluir a interface
       }
     }
-  };
+  }, [toast]);
 
 
   const handleFetchRealPrices = useCallback(() => {
@@ -374,9 +374,7 @@ export default function ArbitrageCalculator() {
       setAiCommentary(null);
       let localPriceA = "";
       let localPriceB = "";
-      let feeA = tradeFeeA;
-      let feeB = tradeFeeB;
-
+      
       try {
         const inputA = { exchange: exchangeA as any, asset: assetA };
         const pA = await getMarketPrice(inputA);
@@ -408,8 +406,8 @@ export default function ArbitrageCalculator() {
         const pA = parseFloat(localPriceA);
         const pB = parseFloat(localPriceB);
         const initialUSDT = parseFloat(initialInvestment);
-        const tFeeA = parseFloat(feeA) / 100;
-        const tFeeB = parseFloat(feeB) / 100;
+        const tFeeA = parseFloat(tradeFeeA) / 100;
+        const tFeeB = parseFloat(tradeFeeB) / 100;
         if (isNaN(pA) || isNaN(pB) || pA <= 0 || pB <= 0 || isNaN(initialUSDT) || initialUSDT <=0) return null;
         const amountOfABought = (initialUSDT / pA) * (1 - tFeeA);
         const usdtFromSellingA = amountOfABought * pA;
@@ -425,11 +423,11 @@ export default function ArbitrageCalculator() {
             assetA,
             exchangeA,
             priceA: parseFloat(localPriceA),
-            feeA: parseFloat(feeA),
+            feeA: parseFloat(tradeFeeA),
             assetB,
             exchangeB,
             priceB: parseFloat(localPriceB),
-            feeB: parseFloat(feeB),
+            feeB: parseFloat(tradeFeeB),
             initialInvestment: parseFloat(initialInvestment),
             finalUSDTValue: tempCalculationResults.finalUSDTValue,
             spread: tempCalculationResults.spread,
@@ -446,9 +444,9 @@ export default function ArbitrageCalculator() {
       }
     });
   }, [
-    assetA, assetB, exchangeA, exchangeB, toast, assetsA, assetsB, 
-    isFetchingRealPrice, setAutoRefresh, setPriceA, setPriceB, 
-    handleNetworkAnalysis, tradeFeeA, tradeFeeB, initialInvestment
+    assetA, assetB, exchangeA, exchangeB, toast, assetsA, assetsB, isFetchingRealPrice, 
+    setPriceA, setPriceB, handleNetworkAnalysis, tradeFeeA, tradeFeeB, initialInvestment,
+    addNewAssetToDB, setAutoRefresh, setAssetsA, setAssetsB
   ]);
 
   useEffect(() => {
