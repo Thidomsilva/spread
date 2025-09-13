@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { RefreshCcw, TestTube2, ArrowRight, Eraser, Sparkles } from "lucide-react";
+import { RefreshCcw, TestTube, ArrowRight, Eraser, Sparkles } from "lucide-react";
 import { liveParityComparison, LiveParityComparisonInput } from "@/ai/flows/live-parity-comparison";
 import { useToast } from "@/hooks/use-toast";
 
@@ -329,7 +329,7 @@ export default function ArbitrageCalculator() {
         </Tabs>
 
         <div className="flex gap-2 pt-4 border-t border-border/50 mt-4">
-          <Button onClick={handleExample} variant="outline" className="w-full"><TestTube2 /> Exemplo</Button>
+          <Button onClick={handleExample} variant="outline" className="w-full"><TestTube /> Exemplo</Button>
           <Button onClick={handleClearFees} variant="outline" className="w-full"><Eraser/> Zerar Taxas</Button>
           <Button onClick={handleReset} variant="ghost" className="w-full"><RefreshCcw /> Reset</Button>
         </div>
