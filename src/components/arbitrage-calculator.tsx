@@ -1,14 +1,15 @@
 "use client";
 
-import { useState, useMemo, useCallback, useTransition } from "react";
+import { useState, useMemo, useCallback, useTransition, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { RefreshCcw, TestTube, ArrowRight, Eraser, Sparkles, Search, Network } from "lucide-react";
+import { RefreshCcw, TestTube, ArrowRight, Eraser, Sparkles, Search, Network, Loader2 } from "lucide-react";
 import { liveParityComparison, LiveParityComparisonInput } from "@/ai/flows/live-parity-comparison";
 import { getMarketPrice, GetMarketPriceInput } from "@/ai/flows/get-market-price";
 import { networkAnalysis, NetworkAnalysisInput, NetworkAnalysisOutput } from "@/ai/flows/network-analysis";
+import { getExchangeAssets } from "@/ai/flows/get-exchange-assets";
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -20,6 +21,8 @@ export default function ArbitrageCalculator() {
   const [isPending, startTransition] = useTransition();
   const [isFetchingRealPrice, startRealPriceTransition] = useTransition();
   const [isAnalyzingNetworks, startNetworkAnalysisTransition] = useTransition();
+  const [isFetchingAssetsA, startFetchingAssetsATransition] = useTransition();
+  const [isFetchingAssetsB, startFetchingAssetsBTransition] = useTransition();
   const { toast } = useToast();
 
   const [triPriceA, setTriPriceA] = useState("");
@@ -33,6 +36,40 @@ export default function ArbitrageCalculator() {
   const [assetA, setAssetA] = useState("JASMY");
   const [assetB, setAssetB] = useState("PEPE");
   const [networkAnalysisResult, setNetworkAnalysisResult] = useState<NetworkAnalysisOutput | null>(null);
+
+  const [assetsA, setAssetsA] = useState<string[]>([]);
+  const [assetsB, setAssetsB] = useState<string[]>([]);
+
+
+  const fetchAssets = useCallback(async (exchange: string, assetSetter: React.Dispatch<React.SetStateAction<string[]>>, startTransition: React.TransitionStartFunction) => {
+    startTransition(async () => {
+      try {
+        const result = await getExchangeAssets({ exchange });
+        assetSetter(result.assets);
+      } catch (error) {
+        console.error(`Failed to fetch assets for ${exchange}:`, error);
+        assetSetter([]);
+        toast({
+          variant: "destructive",
+          title: `Falha ao buscar ativos da ${exchange}`,
+          description: error instanceof Error ? error.message : "Ocorreu um erro desconhecido.",
+        });
+      }
+    });
+  }, [toast]);
+
+  useEffect(() => {
+    if (exchangeA) {
+      fetchAssets(exchangeA, setAssetsA, startFetchingAssetsATransition);
+    }
+  }, [exchangeA, fetchAssets]);
+
+  useEffect(() => {
+    if (exchangeB) {
+      fetchAssets(exchangeB, setAssetsB, startFetchingAssetsBTransition);
+    }
+  }, [exchangeB, fetchAssets]);
+
 
   const formatNumber = (num: number, minDigits = 2, maxDigits = 4) => {
     if (isNaN(num)) return '0';
@@ -216,7 +253,7 @@ export default function ArbitrageCalculator() {
     neutral: { text: "⚠️ Neutro", color: "text-muted-foreground" },
   };
   
-  const isAnyLoading = isPending || isFetchingRealPrice || isAnalyzingNetworks;
+  const isAnyLoading = isPending || isFetchingRealPrice || isAnalyzingNetworks || isFetchingAssetsA || isFetchingAssetsB;
 
   return (
     <Card className="w-full max-w-lg bg-card/50 backdrop-blur-sm border-primary/20 shadow-primary/10 shadow-2xl">
@@ -241,9 +278,27 @@ export default function ArbitrageCalculator() {
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                <Input id="asset-a" placeholder="Ativo A" value={assetA} onChange={e => setAssetA(e.target.value.toUpperCase())} className="text-center font-bold text-lg"/>
+                  <div className="grid gap-2 w-full">
+                      <Select value={assetA} onValueChange={setAssetA} disabled={isAnyLoading || assetsA.length === 0}>
+                        <SelectTrigger className="font-bold text-lg">
+                            <SelectValue placeholder={isFetchingAssetsA ? "Carregando..." : "Selecione Ativo A"}/>
+                        </SelectTrigger>
+                        <SelectContent>
+                            {assetsA.map(asset => <SelectItem key={asset} value={asset}>{asset}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                  </div>
                 <ArrowRight className="w-5 h-5 text-primary/50 shrink-0"/>
-                <Input id="asset-b" placeholder="Ativo B" value={assetB} onChange={e => setAssetB(e.target.value.toUpperCase())} className="text-center font-bold text-lg"/>
+                <div className="grid gap-2 w-full">
+                      <Select value={assetB} onValueChange={setAssetB} disabled={isAnyLoading || assetsB.length === 0}>
+                        <SelectTrigger className="font-bold text-lg">
+                            <SelectValue placeholder={isFetchingAssetsB ? "Carregando..." : "Selecione Ativo B"} />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {assetsB.map(asset => <SelectItem key={asset} value={asset}>{asset}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                  </div>
               </div>
           </div>
 
@@ -366,3 +421,5 @@ export default function ArbitrageCalculator() {
     </Card>
   );
 }
+
+    
