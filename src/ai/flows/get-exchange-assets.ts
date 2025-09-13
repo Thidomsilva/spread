@@ -44,43 +44,48 @@ const getExchangeAssetsFlow = ai.defineFlow(
       `Buscando todos os ativos para a exchange ${input.exchange}`
     );
 
-    // 1. Tenta buscar os ativos do Firestore
-    try {
-        const dbAssets = await getAssetsFromDB({ exchange: input.exchange });
-        if (dbAssets.assets.length > 0) {
-            console.log(`Ativos para ${input.exchange} carregados do Firestore.`);
-            return { assets: dbAssets.assets.sort() };
-        }
-    } catch (error) {
-        console.error(`Erro ao buscar ativos do Firestore para ${input.exchange}. Usando fallback.`, error);
-        // Não faz nada, apenas loga. O código abaixo cuidará do fallback.
-    }
-
-    // 2. Fallback: Usa a lista simulada se o DB estiver vazio ou se a busca falhou
-    console.log(`Nenhum ativo encontrado no Firestore para ${input.exchange} ou falha na conexão. Usando lista simulada e populando o DB.`);
+    // 1. Define a lista de fallback simulada PRIMEIRO para garantir uma resposta rápida.
     const simulatedAssetDb: Record<string, string[]> = {
         MEXC: ['JASMY', 'PEPE', 'BTC', 'ETH', 'SOL', 'DOGE', 'SHIB', 'MATIC', 'AVAX', 'LINK'],
         Bitmart: ['JASMY', 'PEPE', 'BTC', 'ETH', 'SOL', 'DOGE', 'SHIB', 'TRX', 'LTC', 'XRP'],
         'Gate.io': ['JASMY', 'PEPE', 'BTC', 'ETH', 'SOL', 'ADA', 'DOT', 'XLM', 'BCH', 'FIL'],
         Poloniex: ['JASMY', 'PEPE', 'BTC', 'ETH', 'SOL', 'USDC', 'TRX', 'DOGE', 'SHIB', 'LTC'],
     };
+    const localAssets = simulatedAssetDb[input.exchange] || [];
 
-    const assetsToSave = simulatedAssetDb[input.exchange] || [];
-
-    // 3. Salva os ativos simulados no Firestore para futuras buscas
-    if (assetsToSave.length > 0) {
-        try {
-            for (const asset of assetsToSave) {
-                // Adiciona um por um para usar a lógica de "não duplicar"
-                await addAssetToDB({ exchange: input.exchange, asset });
-            }
-            console.log(`Lista de ativos simulados para ${input.exchange} salva no Firestore.`);
-        } catch (error) {
-            console.error(`Erro ao salvar ativos simulados no Firestore para ${input.exchange}:`, error);
-            // Se o salvamento falhar, não impede o retorno dos dados para o usuário
+    // 2. Tenta buscar os ativos do Firestore em segundo plano.
+    try {
+        const dbAssets = await getAssetsFromDB({ exchange: input.exchange });
+        if (dbAssets.assets.length > 0) {
+            console.log(`Ativos para ${input.exchange} carregados do Firestore.`);
+            // Combina e remove duplicatas, dando preferência aos dados do DB
+            const combined = [...new Set([...dbAssets.assets, ...localAssets])];
+            return { assets: combined.sort() };
         }
+    } catch (error) {
+        console.error(`Erro ao buscar ativos do Firestore para ${input.exchange}. Usando apenas a lista local.`, error);
+        // A falha aqui não é crítica, pois já temos a lista local para retornar.
     }
 
-    return { assets: assetsToSave.sort() };
+    // 3. Se o DB estiver vazio ou a busca falhar, retorna a lista local imediatamente.
+    console.log(`Usando lista simulada para ${input.exchange}. O salvamento no DB ocorrerá em segundo plano se necessário.`);
+    
+    // 4. Salva os ativos locais no Firestore se eles ainda não estiverem lá.
+    // Isso é feito em "segundo plano" (fire-and-forget) para não atrasar a resposta ao usuário.
+    if (localAssets.length > 0) {
+        (async () => {
+            try {
+                for (const asset of localAssets) {
+                    // addAssetToDB já contém a lógica para não duplicar.
+                    await addAssetToDB({ exchange: input.exchange, asset });
+                }
+                console.log(`Lista de ativos simulados para ${input.exchange} verificada/salva no Firestore.`);
+            } catch (error) {
+                console.error(`Erro ao salvar ativos simulados no Firestore em segundo plano para ${input.exchange}:`, error);
+            }
+        })();
+    }
+
+    return { assets: localAssets.sort() };
   }
 );
