@@ -54,7 +54,6 @@ function usePersistentState<T>(key: string, defaultValue: T): [T, React.Dispatch
 
   // Efeito para carregar o estado do localStorage apenas no cliente após a hidratação inicial
   useEffect(() => {
-    setIsHydrated(true);
     try {
       const storedValue = window.localStorage.getItem(key);
       if (storedValue !== null) {
@@ -62,6 +61,8 @@ function usePersistentState<T>(key: string, defaultValue: T): [T, React.Dispatch
       }
     } catch (error) {
       console.error(`Error reading localStorage key “${key}”:`, error);
+    } finally {
+      setIsHydrated(true);
     }
   }, [key]);
 
@@ -75,6 +76,10 @@ function usePersistentState<T>(key: string, defaultValue: T): [T, React.Dispatch
       }
     }
   }, [key, state, isHydrated]);
+  
+  if (!isHydrated) {
+      return [defaultValue, () => {}];
+  }
 
   return [state, setState];
 }
