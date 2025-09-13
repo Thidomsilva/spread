@@ -30,6 +30,10 @@ export async function getBitmartPrice(
     const data: BitmartApiResponse = await response.json();
 
     if (!response.ok || data.code !== 1000) {
+        // Personaliza a mensagem se o erro for sobre o símbolo
+        if (data.message && data.message.toLowerCase().includes("symbol not found")) {
+             throw new Error(`Erro da API da Bitmart: O par '${pair}' não foi encontrado.`);
+        }
         throw new Error(`Erro da API da Bitmart: ${data.message || `Status ${response.status}`}`);
     }
     
@@ -43,10 +47,6 @@ export async function getBitmartPrice(
   } catch (error) {
     console.error(`Falha ao buscar o preço da Bitmart para ${pair}:`, error);
      if (error instanceof Error) {
-        // Personaliza a mensagem se o erro for sobre o símbolo
-        if (error.message.includes("symbol-not-found")) {
-             throw new Error(`Erro da API da Bitmart: O par '${pair}' não foi encontrado.`);
-        }
         throw error; // Repassa outros erros da API
     }
     throw new Error(
