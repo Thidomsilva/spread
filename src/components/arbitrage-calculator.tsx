@@ -155,9 +155,17 @@ export default function ArbitrageCalculator() {
         const input: LiveParityComparisonInput = { assetA, assetB };
         try {
             const result = await liveParityComparison(input);
-            setTriPriceA(result.priceA.toString());
-            setTriPriceB(result.priceB.toString());
-            setFactorAB(result.factorAB.toString());
+            if (result) {
+              setTriPriceA(result.priceA.toString());
+              setTriPriceB(result.priceB.toString());
+              setFactorAB(result.factorAB.toString());
+            } else {
+               toast({
+                variant: "destructive",
+                title: "Análise de IA Falhou",
+                description: "A IA não retornou um resultado. Tente novamente.",
+              })
+            }
         } catch (error) {
             console.error("AI analysis failed:", error);
             toast({
