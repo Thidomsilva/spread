@@ -49,7 +49,7 @@ const EXCHANGES = ["MEXC", "Bitmart", "Gate.io", "Poloniex"];
 
 // Hook para persistir estado no localStorage de forma segura
 function usePersistentState<T>(key: string, defaultValue: T): [T, React.Dispatch<React.SetStateAction<T>>] {
-  const [state, setState] = useState<T>(defaultValue);
+  const [state, setState] = useState<T>(() => defaultValue);
   const [isHydrated, setIsHydrated] = useState(false);
 
   // Efeito para carregar o estado do localStorage apenas no cliente após a hidratação inicial
@@ -78,6 +78,7 @@ function usePersistentState<T>(key: string, defaultValue: T): [T, React.Dispatch
   }, [key, state, isHydrated]);
   
   if (!isHydrated) {
+      // Retorna o valor padrão no servidor e na primeira renderização do cliente
       return [defaultValue, () => {}];
   }
 
@@ -298,46 +299,50 @@ export default function ArbitrageCalculator() {
     setAiCommentary(null);
   };
 
-  const handleNetworkAnalysis = useCallback(async () => {
+  const handleNetworkAnalysis = useCallback(async (): Promise<NetworkAnalysisOutput | null> => {
     let analysisResult: NetworkAnalysisOutput | null = null;
-    await startNetworkAnalysisTransition(async () => {
-      setNetworkAnalysisResult(null);
-      setAiCommentary(null); // Limpa comentários antigos
-      if (exchangeA === exchangeB) {
-        analysisResult = {
-          isCompatible: false,
-          commonNetworks: [],
-          reasoning: "A arbitragem ocorre na mesma exchange, não há transferência de rede."
-        };
-        setNetworkAnalysisResult(analysisResult);
-        return;
-      }
-      try {
-        const input = {
-          asset: assetA,
-          sourceExchange: exchangeA,
-          destinationExchange: exchangeB,
-        };
-        const result = await networkAnalysis(input);
-        analysisResult = result;
-        setNetworkAnalysisResult(result);
-      } catch (error) {
-        console.error("Network analysis failed:", error);
-        toast({
-          variant: "destructive",
-          title: "Falha na Análise de Rede",
-          description: error instanceof Error ? error.message : "Ocorreu um erro desconhecido.",
+    return new Promise((resolve) => {
+        startNetworkAnalysisTransition(async () => {
+        setNetworkAnalysisResult(null);
+        setAiCommentary(null); // Limpa comentários antigos
+        if (exchangeA === exchangeB) {
+            analysisResult = {
+            isCompatible: false,
+            commonNetworks: [],
+            reasoning: "A arbitragem ocorre na mesma exchange, não há transferência de rede."
+            };
+            setNetworkAnalysisResult(analysisResult);
+            resolve(analysisResult);
+            return;
+        }
+        try {
+            const input = {
+            asset: assetA,
+            sourceExchange: exchangeA,
+            destinationExchange: exchangeB,
+            };
+            const result = await networkAnalysis(input);
+            analysisResult = result;
+            setNetworkAnalysisResult(result);
+        } catch (error) {
+            console.error("Network analysis failed:", error);
+            toast({
+            variant: "destructive",
+            title: "Falha na Análise de Rede",
+            description: error instanceof Error ? error.message : "Ocorreu um erro desconhecido.",
+            });
+            // Seta um resultado de erro para passar para a próxima etapa
+            analysisResult = {
+            isCompatible: false,
+            commonNetworks: [],
+            reasoning: `Falha na análise: ${error instanceof Error ? error.message : "Erro desconhecido."}`
+            };
+            setNetworkAnalysisResult(analysisResult);
+        } finally {
+            resolve(analysisResult);
+        }
         });
-        // Seta um resultado de erro para passar para a próxima etapa
-        analysisResult = {
-          isCompatible: false,
-          commonNetworks: [],
-          reasoning: `Falha na análise: ${error instanceof Error ? error.message : "Erro desconhecido."}`
-        };
-        setNetworkAnalysisResult(analysisResult);
-      }
     });
-    return analysisResult;
   }, [assetA, exchangeA, exchangeB, toast]);
   
 
