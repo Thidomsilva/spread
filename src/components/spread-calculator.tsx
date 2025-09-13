@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -13,12 +13,15 @@ import { AlertCircle, HelpCircle, RefreshCcw, TestTube2, X, Loader2, ArrowUp, Ar
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 
-import { calculateParity, CalculateParityOutput } from "@/ai/flows/live-parity-comparison";
-
 const FIXED_XPR_FEE = 200;
 const VIABILITY_THRESHOLD = 0.10;
 
 type ViabilityStatus = 'Viável' | 'Neutro' | 'Não viável' | 'Aguardando';
+
+interface ParityResult {
+  xprEquivalenteUsdtViaRede: number;
+  deltaRelativoPercentage: number;
+}
 
 export default function SpreadCalculator() {
   const [xprUsdtPrice, setXprUsdtPrice] = useState("");
@@ -28,7 +31,7 @@ export default function SpreadCalculator() {
   const [buyFee, setBuyFee] = useState("0");
   const [sellFee, setSellFee] = useState("0");
 
-  const [parityResult, setParityResult] = useState<CalculateParityOutput | null>(null);
+  const [parityResult, setParityResult] = useState<ParityResult | null>(null);
   const [isParityLoading, setIsParityLoading] = useState(false);
 
   const { toast } = useToast();
@@ -78,7 +81,13 @@ export default function SpreadCalculator() {
       minimumFractionDigits: 2,
       maximumFractionDigits: 4,
     };
-    return num.toLocaleString('en-US', { ...defaultOptions, ...options });
+    const finalOptions = { ...defaultOptions, ...options };
+
+    if (finalOptions.minimumFractionDigits && finalOptions.maximumFractionDigits && finalOptions.minimumFractionDigits > finalOptions.maximumFractionDigits) {
+        finalOptions.maximumFractionDigits = finalOptions.minimumFractionDigits;
+    }
+    
+    return num.toLocaleString('en-US', finalOptions);
   };
 
   const calculations = useMemo(() => {
@@ -137,12 +146,14 @@ export default function SpreadCalculator() {
     const handler = setTimeout(async () => {
       setIsParityLoading(true);
       try {
-        const result = await calculateParity({
-          vaultaUsdtPrice: pVaultaUsdt,
-          xprVaultaFactor: pFactor,
-          xprUsdtPrice: pXprUsdt,
+        const xprEquivalenteUsdtViaRede = pVaultaUsdt * pFactor;
+        const deltaRelativoPercentage = ((xprEquivalenteUsdtViaRede - pXprUsdt) / pXprUsdt) * 100;
+
+        setParityResult({
+          xprEquivalenteUsdtViaRede,
+          deltaRelativoPercentage,
         });
-        setParityResult(result);
+
       } catch (error) {
         console.error("Parity calculation failed:", error);
         toast({
