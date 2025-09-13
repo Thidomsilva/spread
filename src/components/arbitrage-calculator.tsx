@@ -256,7 +256,7 @@ export default function ArbitrageCalculator() {
     setInitialInvestment("1000");
     setTradeFeeA("0.1");
     setTradeFeeB("0.2");
-    setConversionFactor("2500"); // Exemplo: 1 JASMY = 2500 PEPE
+    setConversionFactor("2500");
     setNetworkAnalysisResult(null);
     setAiCommentary(null);
   };
@@ -383,7 +383,6 @@ export default function ArbitrageCalculator() {
         
         const netAnalysisResult = await handleNetworkAnalysis();
         
-        // This is a temporary calculation just to feed the AI analysis
         const tempCalculationResults = (() => {
             const pA = fetchedPriceA;
             const pB = fetchedPriceB;
@@ -403,7 +402,6 @@ export default function ArbitrageCalculator() {
 
         if (tempCalculationResults && netAnalysisResult) {
             startInvestmentAnalysisTransition(async () => {
-              // Note: We are now passing assetA to the analysis, as it's the one being transferred
               const investmentInput: InvestmentAnalysisInput = {
                 assetA: assetA,
                 exchangeA: exchangeA,
@@ -468,26 +466,10 @@ export default function ArbitrageCalculator() {
             </div>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-4 mb-6">
+        <div className="grid md:grid-cols-1 gap-4 mb-6">
             <div className="grid gap-2 p-4 rounded-lg border border-border/50 bg-background/30">
                 <Label className="text-xs text-muted-foreground" htmlFor="initial-investment">Investimento Inicial (USDT)</Label>
                 <Input id="initial-investment" type="number" placeholder="100" value={initialInvestment} onChange={e => setInitialInvestment(e.target.value)} disabled={isAnyLoading} className="font-bold text-2xl h-12 p-2"/>
-            </div>
-            <div className="grid gap-2 p-4 rounded-lg border border-border/50 bg-background/30">
-                <Label className="text-xs text-muted-foreground flex items-center" htmlFor="conversion-factor">
-                    Fator de Conversão (A {'->'} B)
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <HelpCircle className="h-3 w-3 ml-1.5 cursor-help" />
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>Quantos Ativo B você recebe por 1 Ativo A.</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                </Label>
-                <Input id="conversion-factor" type="number" placeholder="1.0" value={conversionFactor} onChange={e => setConversionFactor(e.target.value)} disabled={isAnyLoading} className="font-bold text-2xl h-12 p-2"/>
             </div>
         </div>
         
@@ -625,11 +607,26 @@ export default function ArbitrageCalculator() {
                             <h4 className="font-bold text-foreground text-sm pb-1">Preços e Taxas</h4>
                             <div className="flex justify-between"><span>Preço Compra ({assetA} / {exchangeA}):</span> <span className="break-all">${formatNumber(parseFloat(priceA), 2, 8)}</span></div>
                             <div className="flex justify-between"><span>Preço Venda ({assetB} / {exchangeB}):</span> <span className="break-all">${formatNumber(parseFloat(priceB), 2, 8)}</span></div>
-                            <div className="flex justify-between border-t border-border/50 pt-2 mt-2">
-                                <span>Fator Conversão ({assetA}→{assetB}):</span>
-                                <span>{formatNumber(parseFloat(conversionFactor), 2, 6)}</span>
-                            </div>
                              <div className="flex justify-between border-t border-border/50 pt-2 mt-2"><span>Taxas Totais (Estimado):</span> <span>{tradeFeeA}% + {tradeFeeB}%</span></div>
+                        </div>
+
+                        <div className="space-y-2 bg-background/50 p-3 rounded-md border border-border/50">
+                             <div className="grid gap-2">
+                                <Label className="text-xs text-muted-foreground flex items-center" htmlFor="conversion-factor">
+                                    Fator de Conversão ({assetA} {'->'} {assetB})
+                                    <TooltipProvider>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                        <HelpCircle className="h-3 w-3 ml-1.5 cursor-help" />
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                        <p>Quantos Ativo B você recebe por 1 Ativo A.</p>
+                                        </TooltipContent>
+                                    </Tooltip>
+                                    </TooltipProvider>
+                                </Label>
+                                <Input id="conversion-factor" type="number" placeholder="1.0" value={conversionFactor} onChange={e => setConversionFactor(e.target.value)} disabled={isAnyLoading} className="font-bold text-md h-10 p-2"/>
+                            </div>
                         </div>
                       </div>
                     </AccordionContent>
@@ -651,5 +648,3 @@ export default function ArbitrageCalculator() {
     </Card>
   );
 }
-
-    
