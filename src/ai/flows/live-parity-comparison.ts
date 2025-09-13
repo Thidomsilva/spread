@@ -14,7 +14,7 @@ import {z} from 'zod';
 const getMarketData = ai.defineTool(
   {
     name: 'getMarketData',
-    description: 'Obtém dados de mercado simulados para um par de moedas. Use USDT como contraparte para preços e o par direto para o fator de conversão.',
+    description: 'Obtém dados de mercado simulados para um par de moedas. Use USDT como contraparte para preços.',
     inputSchema: z.object({
       pair: z.string().describe('O par de moedas no formato ATIVO/CONTRA-MOEDA (ex: JASMY/USDT).'),
     }),
@@ -45,9 +45,6 @@ export type LiveParityComparisonInput = z.infer<
 const LiveParityComparisonOutputSchema = z.object({
   priceA: z.number().describe('O preço de compra do Ativo A em USDT.'),
   priceB: z.number().describe('O preço de venda do Ativo B em USDT.'),
-  factorAB: z
-    .number()
-    .describe('O fator de conversão direto do Ativo A para o Ativo B.'),
 });
 export type LiveParityComparisonOutput = z.infer<
   typeof LiveParityComparisonOutputSchema
@@ -66,7 +63,7 @@ const liveParityPrompt = ai.definePrompt({
   input: {schema: LiveParityComparisonInputSchema},
   output: {schema: LiveParityComparisonOutputSchema},
   tools: [getMarketData],
-  prompt: `Você é um expert em trading de criptomoedas e sua tarefa é encontrar preços de mercado para uma operação de arbitragem triangular.
+  prompt: `Você é um expert em trading de criptomoedas e sua tarefa é encontrar preços de mercado para uma operação de arbitragem.
 
     Ativos da operação:
     - Ativo de Compra: {{{assetA}}}
@@ -75,9 +72,8 @@ const liveParityPrompt = ai.definePrompt({
     Instruções:
     1.  **priceA**: Use a ferramenta \`getMarketData\` para encontrar o preço de COMPRA para o par {{{assetA}}}/USDT.
     2.  **priceB**: Use a ferramenta \`getMarketData\` para encontrar o preço de VENDA para o par {{{assetB}}}/USDT.
-    3.  **factorAB**: Use a ferramenta \`getMarketData\` para encontrar a taxa de conversão (fator de troca) para o par {{{assetA}}}/{{{assetB}}}.
 
-    Após obter todos os dados, retorne os três valores no formato JSON especificado.`,
+    Após obter todos os dados, retorne os valores no formato JSON especificado.`,
 });
 
 
