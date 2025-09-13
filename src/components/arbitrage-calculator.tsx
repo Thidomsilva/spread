@@ -224,6 +224,36 @@ export default function ArbitrageCalculator() {
     setTradeFeeB("0");
   };
 
+  const handleNetworkAnalysis = useCallback(() => {
+    startNetworkAnalysisTransition(async () => {
+      setNetworkAnalysisResult(null);
+      if (exchangeA === exchangeB) {
+        setNetworkAnalysisResult({
+          isCompatible: false,
+          commonNetworks: [],
+          reasoning: "As exchanges de origem e destino são as mesmas."
+        });
+        return;
+      }
+      try {
+        const input: NetworkAnalysisInput = {
+          asset: assetA,
+          sourceExchange: exchangeA,
+          destinationExchange: exchangeB,
+        };
+        const result = await networkAnalysis(input);
+        setNetworkAnalysisResult(result);
+      } catch (error) {
+        console.error("Network analysis failed:", error);
+        toast({
+          variant: "destructive",
+          title: "Falha na Análise de Rede",
+          description: error instanceof Error ? error.message : "Ocorreu um erro desconhecido.",
+        });
+      }
+    });
+  }, [assetA, exchangeA, exchangeB, toast]);
+
   const handleAiAnalysis = () => {
     startTransition(async () => {
       setNetworkAnalysisResult(null);
@@ -236,7 +266,8 @@ export default function ArbitrageCalculator() {
               toast({
                 title: "Análise de IA Concluída",
                 description: "Os preços simulados foram preenchidos.",
-              })
+              });
+              handleNetworkAnalysis(); // Executa a análise de rede
             } else {
                toast({
                 variant: "destructive",
@@ -301,6 +332,8 @@ export default function ArbitrageCalculator() {
             description: `Preços de ${assetA} e ${assetB} atualizados.`,
         });
 
+        handleNetworkAnalysis(); // Executa a análise de rede
+
       } catch (error) {
         console.error("Real price fetching failed:", error);
         toast({
@@ -310,44 +343,8 @@ export default function ArbitrageCalculator() {
         })
       }
     });
-  }, [assetA, assetB, exchangeA, exchangeB, toast, assetsA, assetsB]);
-
-  const handleNetworkAnalysis = useCallback(() => {
-    startNetworkAnalysisTransition(async () => {
-      setNetworkAnalysisResult(null);
-      if (exchangeA === exchangeB) {
-        setNetworkAnalysisResult({
-          isCompatible: false,
-          commonNetworks: [],
-          reasoning: "As exchanges de origem e destino são as mesmas."
-        });
-        return;
-      }
-      try {
-        const input: NetworkAnalysisInput = {
-          asset: assetA,
-          sourceExchange: exchangeA,
-          destinationExchange: exchangeB,
-        };
-        const result = await networkAnalysis(input);
-        setNetworkAnalysisResult(result);
-      } catch (error) {
-        console.error("Network analysis failed:", error);
-        toast({
-          variant: "destructive",
-          title: "Falha na Análise de Rede",
-          description: error instanceof Error ? error.message : "Ocorreu um erro desconhecido.",
-        });
-      }
-    });
-  }, [assetA, exchangeA, exchangeB, toast]);
+  }, [assetA, assetB, exchangeA, exchangeB, toast, assetsA, assetsB, handleNetworkAnalysis]);
   
-  useEffect(() => {
-    if (assetA && exchangeA && exchangeB) {
-      handleNetworkAnalysis();
-    }
-  }, [assetA, exchangeA, exchangeB, handleNetworkAnalysis]);
-
   const diagnosisStyles = {
     positive: { text: "✅ Arbitragem Positiva", color: "text-success" },
     negative: { text: "❌ Arbitragem Negativa", color: "text-destructive" },
