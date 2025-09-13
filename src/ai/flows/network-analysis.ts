@@ -50,7 +50,8 @@ const getExchangeAssetNetworks = ai.defineTool(
       },
     };
 
-    const supportedNetworks = networksDb[asset]?.[exchange] || []; // Padrão para lista vazia se não encontrado
+    const assetUpperCase = asset.toUpperCase();
+    const supportedNetworks = networksDb[assetUpperCase]?.[exchange] || []; // Padrão para lista vazia se não encontrado
 
     return {
       depositNetworks: supportedNetworks,
