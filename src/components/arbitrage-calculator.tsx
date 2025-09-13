@@ -490,7 +490,11 @@ export default function ArbitrageCalculator() {
                  {calculationResults && (
                     <p className="text-xs text-muted-foreground mt-2">Você recebe ≈ <span className="font-bold text-white">{formatNumber(calculationResults.amountOfABought, 2, 6)} {assetA}</span></p>
                 )}
-                 <div className="grid grid-cols-1 mt-4">
+                 <div className="grid grid-cols-2 gap-4 mt-4">
+                    <div className="grid gap-2">
+                        <Label className="text-xs" htmlFor="price-a">Preço {assetA}/USDT</Label>
+                        <Input id="price-a" type="number" placeholder="0.00" value={priceA} onChange={e => setPriceA(e.target.value)} disabled={isAnyLoading || autoRefresh}/>
+                    </div>
                     <div className="grid gap-2">
                         <Label className="text-xs" htmlFor="trade-fee-a">Taxa de Negociação (%)</Label>
                         <Input id="trade-fee-a" type="number" value={tradeFeeA} onChange={e => setTradeFeeA(e.target.value)} disabled={isAnyLoading || autoRefresh} />
@@ -523,7 +527,11 @@ export default function ArbitrageCalculator() {
                 {calculationResults && (
                     <p className="text-xs text-muted-foreground mt-2">Você recebe ≈ <span className="font-bold text-white">{formatNumber(calculationResults.amountOfBToGet, 2, 6)} {assetB}</span></p>
                 )}
-                 <div className="grid grid-cols-1 mt-4">
+                 <div className="grid grid-cols-2 gap-4 mt-4">
+                    <div className="grid gap-2">
+                        <Label className="text-xs" htmlFor="price-b">Preço {assetB}/USDT</Label>
+                        <Input id="price-b" type="number" placeholder="0.00" value={priceB} onChange={e => setPriceB(e.target.value)} disabled={isAnyLoading || autoRefresh} />
+                    </div>
                     <div className="grid gap-2">
                         <Label className="text-xs" htmlFor="trade-fee-b">Taxa de Negociação (%)</Label>
                         <Input id="trade-fee-b" type="number" value={tradeFeeB} onChange={e => setTradeFeeB(e.target.value)} disabled={isAnyLoading || autoRefresh} />
@@ -531,13 +539,6 @@ export default function ArbitrageCalculator() {
                 </div>
             </div>
         </div>
-
-
-          <div className="hidden">
-            <Input id="price-a" type="number" value={priceA} onChange={e => setPriceA(e.target.value)} />
-            <Input id="price-b" type="number" value={priceB} onChange={e => setPriceB(e.target.value)} />
-          </div>
-
 
            {isAnalyzingNetworks && (
              <div className="flex items-center justify-center text-sm text-muted-foreground my-4">
@@ -615,5 +616,3 @@ export default function ArbitrageCalculator() {
     </Card>
   );
 }
-
-    
