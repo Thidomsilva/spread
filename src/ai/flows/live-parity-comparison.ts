@@ -33,7 +33,7 @@ const getMarketData = ai.defineTool(
 
 
 // Definição do esquema de entrada com os nomes dos ativos
-export const LiveParityComparisonInputSchema = z.object({
+const LiveParityComparisonInputSchema = z.object({
   assetA: z.string().describe('O nome/símbolo do primeiro ativo (ex: JASMY)'),
   assetB: z.string().describe('O nome/símbolo do segundo ativo (ex: PEPE)'),
 });
@@ -42,7 +42,7 @@ export type LiveParityComparisonInput = z.infer<
 >;
 
 // Definição do esquema de saída com os preços e fator encontrados
-export const LiveParityComparisonOutputSchema = z.object({
+const LiveParityComparisonOutputSchema = z.object({
   priceA: z.number().describe('O preço de compra do Ativo A em USDT.'),
   priceB: z.number().describe('O preço de venda do Ativo B em USDT.'),
   factorAB: z
