@@ -8,6 +8,7 @@
 
 import { ai } from '@/ai/genkit';
 import { getMexcPrice } from '@/services/mexc-service';
+import { getBitmartPrice } from '@/services/bitmart-service';
 import { z } from 'zod';
 
 const GetMarketPriceInputSchema = z.object({
@@ -41,15 +42,18 @@ const getMarketPriceFlow = ai.defineFlow(
     
     // Remove a barra e garante que a contraparte não seja duplicada.
     const cleanAsset = input.asset.toUpperCase().replace(/\/.*/, '');
-    const pair = `${cleanAsset}${counterpart.toUpperCase()}`;
-
 
     switch (input.exchange) {
       case 'MEXC':
-        const mexcResponse = await getMexcPrice(pair);
+        const mexcPair = `${cleanAsset}${counterpart.toUpperCase()}`;
+        const mexcResponse = await getMexcPrice(mexcPair);
         price = parseFloat(mexcResponse.price);
         break;
       case 'Bitmart':
+        const bitmartPair = `${cleanAsset}_${counterpart.toUpperCase()}`;
+        const bitmartResponse = await getBitmartPrice(bitmartPair);
+        price = parseFloat(bitmartResponse.last_price);
+        break;
       case 'Gate.io':
         throw new Error(`A exchange ${input.exchange} ainda não foi implementada.`);
       default:
