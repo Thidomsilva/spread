@@ -47,7 +47,7 @@ function AssetCombobox({
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className="w-full justify-between font-bold text-lg h-auto"
+          className="w-full justify-between font-bold text-lg h-12"
           disabled={disabled || isLoading}
         >
           <Input
@@ -105,7 +105,7 @@ export default function ArbitrageCalculator() {
 
   const [priceA, setPriceA] = useState("");
   const [priceB, setPriceB] = useState("");
-  const [amountToSell, setAmountToSell] = useState("100");
+  const [initialInvestment, setInitialInvestment] = useState("100");
   const [tradeFeeA, setTradeFeeA] = useState("0.1");
   const [tradeFeeB, setTradeFeeB] = useState("0.1");
   const [exchangeA, setExchangeA] = useState(EXCHANGES[0]);
@@ -161,25 +161,24 @@ export default function ArbitrageCalculator() {
   const calculationResults = useMemo(() => {
     const pA = parseFloat(priceA); // Preço do ativo A em USDT
     const pB = parseFloat(priceB); // Preço do ativo B em USDT
-    const initialAmountA = parseFloat(amountToSell); // Quantidade do ativo A para vender
+    const initialUSDTValue = parseFloat(initialInvestment); // Investimento inicial em USDT
     const feeA = parseFloat(tradeFeeA) / 100;
     const feeB = parseFloat(tradeFeeB) / 100;
 
-    if (isNaN(pA) || isNaN(pB) || pA <= 0 || pB <= 0 || isNaN(initialAmountA) || initialAmountA <=0) {
+    if (isNaN(pA) || isNaN(pB) || pA <= 0 || pB <= 0 || isNaN(initialUSDTValue) || initialUSDTValue <=0) {
       return null;
     }
     
-    // 1. Valor inicial em USDT (equivalente)
-    const initialUSDTValue = initialAmountA * pA;
+    // 1. Compra o Ativo A com o investimento inicial (considerando a taxa)
+    const usdtToSpendOnA = initialUSDTValue * (1 - feeA);
+    const amountOfABought = usdtToSpendOnA / pA;
 
-    // 2. Vende o Ativo A por USDT (considerando a taxa)
-    const usdtFromSaleA = initialUSDTValue * (1 - feeA);
+    // 2. Com a quantidade de Ativo A, calcula quanto de Ativo B pode ser obtido.
+    // Esta é uma troca direta baseada no fator de preço.
+    const amountOfBToGet = (amountOfABought * pA) / pB;
 
-    // 3. Usa o USDT para comprar o Ativo B
-    const amountOfBToBuy = usdtFromSaleA / pB;
-    
-    // 4. Vende o Ativo B por USDT (para calcular o valor final)
-    const finalUSDTValue = amountOfBToBuy * pB * (1 - feeB);
+    // 3. Vende o Ativo B para obter o valor final em USDT (considerando a taxa)
+    const finalUSDTValue = amountOfBToGet * pB * (1 - feeB);
 
     const spread = initialUSDTValue > 0 ? ((finalUSDTValue / initialUSDTValue) - 1) * 100 : 0;
     
@@ -194,21 +193,22 @@ export default function ArbitrageCalculator() {
 
     return {
       initialUSDTValue,
-      amountOfBToBuy,
+      amountOfABought,
+      amountOfBToGet,
       finalUSDTValue,
       spread,
       diagnosis,
       calculatedFactor: factor,
       priceB_break_even
     };
-  }, [priceA, priceB, amountToSell, tradeFeeA, tradeFeeB]);
+  }, [priceA, priceB, initialInvestment, tradeFeeA, tradeFeeB]);
 
   const handleExample = () => {
     setAssetA("JASMY");
     setAssetB("PEPE");
     setPriceA("0.0315");
     setPriceB("0.0000118");
-    setAmountToSell("10000");
+    setInitialInvestment("1000");
     setTradeFeeA("0.1");
     setTradeFeeB("0.1");
     setNetworkAnalysisResult(null);
@@ -219,7 +219,7 @@ export default function ArbitrageCalculator() {
     setAssetB("PEPE");
     setPriceA("");
     setPriceB("");
-    setAmountToSell("100");
+    setInitialInvestment("100");
     setTradeFeeA("0.1");
     setTradeFeeB("0.1");
     setNetworkAnalysisResult(null);
@@ -415,81 +415,89 @@ export default function ArbitrageCalculator() {
               </div>
         </div>
 
-        {/* Card de Venda */}
+        {/* Investimento Inicial */}
         <div className="p-4 rounded-lg border border-border/50 bg-background/30 mb-4">
-          <Label className="text-xs text-muted-foreground">Você Vende</Label>
-          <div className="grid grid-cols-2 gap-4 mt-2">
-            <div className="grid gap-2">
-              <Input id="amount-to-sell" type="number" placeholder="100" value={amountToSell} onChange={e => setAmountToSell(e.target.value)} disabled={isAnyLoading || autoRefresh} className="font-bold text-2xl h-12 p-2"/>
-            </div>
-            <div className="grid gap-2">
-               <AssetCombobox
-                  value={assetA}
-                  onChange={setAssetA}
-                  assets={assetsA}
-                  isLoading={isFetchingAssetsA}
-                  disabled={isAnyLoading || autoRefresh}
-                />
-            </div>
+          <Label className="text-xs text-muted-foreground" htmlFor="initial-investment">Investimento Inicial (USDT)</Label>
+          <div className="mt-2">
+            <Input id="initial-investment" type="number" placeholder="100" value={initialInvestment} onChange={e => setInitialInvestment(e.target.value)} disabled={isAnyLoading || autoRefresh} className="font-bold text-2xl h-12 p-2"/>
           </div>
-           {calculationResults && (
-            <p className="text-xs text-muted-foreground mt-2">≈ ${formatNumber(calculationResults.initialUSDTValue, 2, 2)}</p>
-           )}
-           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-             <div className="grid gap-2">
-                <Label className="text-xs" htmlFor="exchange-a">Exchange de Venda</Label>
-                <Select value={exchangeA} onValueChange={setExchangeA} disabled={isAnyLoading || autoRefresh}>
-                    <SelectTrigger id="exchange-a"><SelectValue /></SelectTrigger>
-                    <SelectContent>{EXCHANGES.map(ex => <SelectItem key={ex} value={ex}>{ex}</SelectItem>)}</SelectContent>
-                </Select>
-            </div>
-            <div className="grid gap-2">
-                <Label className="text-xs" htmlFor="trade-fee-a">Taxa de Negociação (%)</Label>
-                <Input id="trade-fee-a" type="number" value={tradeFeeA} onChange={e => setTradeFeeA(e.target.value)} disabled={isAnyLoading || autoRefresh} />
-            </div>
-           </div>
         </div>
-
+        
         <div className="flex justify-center items-center my-2">
            <div className="w-full h-px bg-border/50"></div>
             <ArrowRight className="w-6 h-6 text-primary/50 shrink-0 mx-2"/>
             <div className="w-full h-px bg-border/50"></div>
         </div>
         
-        {/* Card de Compra */}
-        <div className="p-4 rounded-lg border border-border/50 bg-background/30 mb-6">
-          <Label className="text-xs text-muted-foreground">Você Compra</Label>
-          <div className="grid grid-cols-2 gap-4 mt-2">
-            <div className="grid gap-2">
-              <Input id="amount-to-buy" type="text" value={calculationResults ? formatNumber(calculationResults.amountOfBToBuy, 2, 6) : '0.00'} disabled className="font-bold text-2xl h-12 p-2 bg-transparent border-dashed"/>
+        {/* Etapas de Troca */}
+        <div className="space-y-4 mb-6">
+            {/* Etapa 1: Compra do Ativo A */}
+            <div className="p-4 rounded-lg border border-border/50 bg-background/30">
+                <Label className="text-xs text-muted-foreground">Etapa 1: Compra do Ativo A</Label>
+                <div className="flex items-end gap-4 mt-2">
+                    <div className="flex-1 grid gap-2">
+                        <Label className="text-xs" htmlFor="asset-a">Ativo a Comprar</Label>
+                        <AssetCombobox
+                          value={assetA}
+                          onChange={setAssetA}
+                          assets={assetsA}
+                          isLoading={isFetchingAssetsA}
+                          disabled={isAnyLoading || autoRefresh}
+                        />
+                    </div>
+                    <div className="flex-1 grid gap-2">
+                        <Label className="text-xs" htmlFor="exchange-a">Na Exchange</Label>
+                        <Select value={exchangeA} onValueChange={setExchangeA} disabled={isAnyLoading || autoRefresh}>
+                            <SelectTrigger id="exchange-a"><SelectValue /></SelectTrigger>
+                            <SelectContent>{EXCHANGES.map(ex => <SelectItem key={ex} value={ex}>{ex}</SelectItem>)}</SelectContent>
+                        </Select>
+                    </div>
+                </div>
+                 {calculationResults && (
+                    <p className="text-xs text-muted-foreground mt-2">Você recebe ≈ <span className="font-bold">{formatNumber(calculationResults.amountOfABought, 2, 6)} {assetA}</span></p>
+                )}
+                 <div className="grid grid-cols-1 mt-4">
+                    <div className="grid gap-2">
+                        <Label className="text-xs" htmlFor="trade-fee-a">Taxa de Negociação (%)</Label>
+                        <Input id="trade-fee-a" type="number" value={tradeFeeA} onChange={e => setTradeFeeA(e.target.value)} disabled={isAnyLoading || autoRefresh} />
+                    </div>
+                </div>
             </div>
-            <div className="grid gap-2">
-               <AssetCombobox
-                  value={assetB}
-                  onChange={setAssetB}
-                  assets={assetsB}
-                  isLoading={isFetchingAssetsB}
-                  disabled={isAnyLoading || autoRefresh}
-                />
+            
+            {/* Etapa 2: Troca por Ativo B */}
+            <div className="p-4 rounded-lg border border-border/50 bg-background/30">
+                <Label className="text-xs text-muted-foreground">Etapa 2: Troca por Ativo B</Label>
+                <div className="flex items-end gap-4 mt-2">
+                    <div className="flex-1 grid gap-2">
+                        <Label className="text-xs" htmlFor="asset-b">Ativo a Receber</Label>
+                        <AssetCombobox
+                          value={assetB}
+                          onChange={setAssetB}
+                          assets={assetsB}
+                          isLoading={isFetchingAssetsB}
+                          disabled={isAnyLoading || autoRefresh}
+                        />
+                    </div>
+                    <div className="flex-1 grid gap-2">
+                        <Label className="text-xs" htmlFor="exchange-b">Na Exchange</Label>
+                        <Select value={exchangeB} onValueChange={setExchangeB} disabled={isAnyLoading || autoRefresh}>
+                            <SelectTrigger id="exchange-b"><SelectValue /></SelectTrigger>
+                            <SelectContent>{EXCHANGES.map(ex => <SelectItem key={ex} value={ex}>{ex}</SelectItem>)}</SelectContent>
+                        </Select>
+                    </div>
+                </div>
+                {calculationResults && (
+                    <p className="text-xs text-muted-foreground mt-2">Você recebe ≈ <span className="font-bold">{formatNumber(calculationResults.amountOfBToGet, 2, 6)} {assetB}</span></p>
+                )}
+                 <div className="grid grid-cols-1 mt-4">
+                    <div className="grid gap-2">
+                        <Label className="text-xs" htmlFor="trade-fee-b">Taxa de Negociação (%)</Label>
+                        <Input id="trade-fee-b" type="number" value={tradeFeeB} onChange={e => setTradeFeeB(e.target.value)} disabled={isAnyLoading || autoRefresh} />
+                    </div>
+                </div>
             </div>
-          </div>
-          {calculationResults && (
-            <p className="text-xs mt-2" >&nbsp;</p>
-          )}
-           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-             <div className="grid gap-2">
-                <Label className="text-xs" htmlFor="exchange-b">Exchange de Compra</Label>
-                <Select value={exchangeB} onValueChange={setExchangeB} disabled={isAnyLoading || autoRefresh}>
-                    <SelectTrigger id="exchange-b"><SelectValue /></SelectTrigger>
-                    <SelectContent>{EXCHANGES.map(ex => <SelectItem key={ex} value={ex}>{ex}</SelectItem>)}</SelectContent>
-                </Select>
-            </div>
-            <div className="grid gap-2">
-                <Label className="text-xs" htmlFor="trade-fee-b">Taxa de Negociação (%)</Label>
-                <Input id="trade-fee-b" type="number" value={tradeFeeB} onChange={e => setTradeFeeB(e.target.value)} disabled={isAnyLoading || autoRefresh} />
-            </div>
-           </div>
         </div>
+
 
           <div className="hidden">
             <Input id="price-a" type="number" value={priceA} onChange={e => setPriceA(e.target.value)} />
