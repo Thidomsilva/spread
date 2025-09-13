@@ -26,7 +26,7 @@ const EXCHANGES = ["MEXC", "Bitmart", "Gate.io"];
 
 // Hook para persistir estado no localStorage de forma segura
 function usePersistentState<T>(key: string, defaultValue: T): [T, React.Dispatch<React.SetStateAction<T>>] {
-  const [state, setState] = useState<T>(defaultValue);
+  const [state, setState] = useState<T>(() => defaultValue);
 
   // Efeito para carregar o estado do localStorage apenas no cliente
   useEffect(() => {
@@ -34,11 +34,14 @@ function usePersistentState<T>(key: string, defaultValue: T): [T, React.Dispatch
       const storedValue = window.localStorage.getItem(key);
       if (storedValue !== null) {
         setState(JSON.parse(storedValue));
+      } else {
+        setState(defaultValue);
       }
     } catch (error) {
       console.error(`Error reading localStorage key “${key}”:`, error);
+      setState(defaultValue);
     }
-  }, [key]);
+  }, [key, defaultValue]);
 
   // Efeito para salvar o estado no localStorage sempre que ele mudar
   useEffect(() => {

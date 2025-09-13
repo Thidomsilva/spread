@@ -16,7 +16,7 @@ const getExchangeAssetNetworks = ai.defineTool(
     name: 'getExchangeAssetNetworks',
     description: 'Obtém as redes de saque e depósito para um ativo específico em uma exchange.',
     inputSchema: z.object({
-      exchange: z.string().describe('O nome da exchange (ex: MEXC, Bitmart).'),
+      exchange: z.string().describe('O nome da exchange (ex: MEXC, Bitmart, Gate.io).'),
       asset: z.string().describe('O símbolo do ativo (ex: JASMY).'),
     }),
     outputSchema: z.object({

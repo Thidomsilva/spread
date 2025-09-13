@@ -9,6 +9,7 @@
 import { ai } from '@/ai/genkit';
 import { getMexcPrice } from '@/services/mexc-service';
 import { getBitmartPrice } from '@/services/bitmart-service';
+import { getGateioPrice } from '@/services/gateio-service';
 import { z } from 'zod';
 
 const GetMarketPriceInputSchema = z.object({
@@ -57,7 +58,11 @@ const getMarketPriceFlow = ai.defineFlow(
         price = parseFloat(bitmartResponse.last_price);
         break;
       case 'Gate.io':
-        throw new Error(`A exchange ${input.exchange} ainda não foi implementada.`);
+        // Gate.io espera o formato: JASMY_USDT
+        const gateioPair = `${cleanAsset}_${cleanCounterpart}`;
+        const gateioResponse = await getGateioPrice(gateioPair);
+        price = parseFloat(gateioResponse.last);
+        break;
       default:
         throw new Error(`Exchange desconhecida: ${input.exchange}`);
     }
