@@ -5,17 +5,92 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { RefreshCcw, TestTube, ArrowRight, Eraser, Sparkles, Search, Network } from "lucide-react";
+import { RefreshCcw, TestTube, ArrowRight, Eraser, Sparkles, Search, Network, ChevronsUpDown, Check } from "lucide-react";
 import { liveParityComparison, LiveParityComparisonInput } from "@/ai/flows/live-parity-comparison";
 import { getMarketPrice, GetMarketPriceInput } from "@/ai/flows/get-market-price";
 import { networkAnalysis, NetworkAnalysisInput, NetworkAnalysisOutput } from "@/ai/flows/network-analysis";
 import { getExchangeAssets } from "@/ai/flows/get-exchange-assets";
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { cn } from "@/lib/utils";
+
 
 type DiagnosisStatus = 'positive' | 'negative' | 'neutral';
 
 const EXCHANGES = ["MEXC", "Bitmart", "Gate.io"];
+
+// Componente de Combobox reutilizável
+function AssetCombobox({
+  value,
+  onChange,
+  assets,
+  isLoading,
+  disabled,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  assets: string[];
+  isLoading: boolean;
+  disabled: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className="w-full justify-between font-bold text-lg h-auto"
+          disabled={disabled || isLoading}
+        >
+          <Input
+            type="text"
+            value={value}
+            onChange={(e) => onChange(e.target.value.toUpperCase())}
+            placeholder={isLoading ? "Carregando..." : "Selecione ou digite"}
+            className="w-full border-0 focus-visible:ring-0 focus-visible:ring-offset-0 p-0 font-bold text-lg bg-transparent"
+            disabled={disabled}
+            onClick={(e) => e.stopPropagation()} // Impede o popover de fechar ao clicar no input
+          />
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+        <Command>
+          <CommandInput placeholder="Buscar ativo..." />
+          <CommandList>
+            <CommandEmpty>Nenhum ativo encontrado.</CommandEmpty>
+            <CommandGroup>
+              {assets.map((asset) => (
+                <CommandItem
+                  key={asset}
+                  value={asset}
+                  onSelect={(currentValue) => {
+                    onChange(currentValue.toUpperCase());
+                    setOpen(false);
+                  }}
+                >
+                  <Check
+                    className={cn(
+                      "mr-2 h-4 w-4",
+                      value.toLowerCase() === asset.toLowerCase() ? "opacity-100" : "opacity-0"
+                    )}
+                  />
+                  {asset}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 
 export default function ArbitrageCalculator() {
   const [isPending, startTransition] = useTransition();
@@ -100,8 +175,8 @@ export default function ArbitrageCalculator() {
     const spread = usdtInitial > 0 ? ((USDT_final_liquido / usdtInitial) - 1) * 100 : 0;
     
     let diagnosis: DiagnosisStatus;
-    if (spread > 0) diagnosis = 'positive';
-    else if (spread < 0) diagnosis = 'negative';
+    if (spread > 0.0001) diagnosis = 'positive'; // Adicionada uma pequena margem para evitar imprecisão de float
+    else if (spread < -0.0001) diagnosis = 'negative';
     else diagnosis = 'neutral';
     
     const A_equivalente = pB * (1/factor);
@@ -279,25 +354,23 @@ export default function ArbitrageCalculator() {
               </div>
               <div className="flex items-center gap-3">
                   <div className="grid gap-2 w-full">
-                      <Select value={assetA} onValueChange={setAssetA} disabled={isAnyLoading || assetsA.length === 0}>
-                        <SelectTrigger className="font-bold text-lg">
-                            <SelectValue placeholder={isFetchingAssetsA ? "Carregando..." : "Selecione Ativo A"}/>
-                        </SelectTrigger>
-                        <SelectContent>
-                            {assetsA.map(asset => <SelectItem key={asset} value={asset}>{asset}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
+                     <AssetCombobox
+                        value={assetA}
+                        onChange={setAssetA}
+                        assets={assetsA}
+                        isLoading={isFetchingAssetsA}
+                        disabled={isAnyLoading}
+                      />
                   </div>
                 <ArrowRight className="w-5 h-5 text-primary/50 shrink-0"/>
                 <div className="grid gap-2 w-full">
-                      <Select value={assetB} onValueChange={setAssetB} disabled={isAnyLoading || assetsB.length === 0}>
-                        <SelectTrigger className="font-bold text-lg">
-                            <SelectValue placeholder={isFetchingAssetsB ? "Carregando..." : "Selecione Ativo B"} />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {assetsB.map(asset => <SelectItem key={asset} value={asset}>{asset}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
+                     <AssetCombobox
+                        value={assetB}
+                        onChange={setAssetB}
+                        assets={assetsB}
+                        isLoading={isFetchingAssetsB}
+                        disabled={isAnyLoading}
+                      />
                   </div>
               </div>
           </div>
@@ -383,7 +456,7 @@ export default function ArbitrageCalculator() {
                   </p>
                 </div>
                 <div className="flex flex-col sm:flex-row justify-center items-center text-center gap-2 sm:gap-3 flex-wrap">
-                  <p className="text-2xl text-muted-foreground">${formatNumber(parseFloat(initialUSDT),2,2)}</p>
+                  <p className="text-2xl text-muted-foreground break-all">${formatNumber(parseFloat(initialUSDT),2,2)}</p>
                   <ArrowRight className="w-6 h-6 text-primary/50 hidden sm:block" />
                   <p className={`text-2xl font-bold break-all ${diagnosisStyles[triResults.diagnosis].color}`}>
                       ${formatNumber(triResults.USDT_final_liquido, 2, 2)}
