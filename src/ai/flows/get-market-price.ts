@@ -38,21 +38,21 @@ const getMarketPriceFlow = ai.defineFlow(
     );
 
     let price = 0;
-    const counterpart = input.counterpart ?? 'USDT';
     
-    // Remove barras e outros caracteres para garantir a formatação correta do par.
-    const cleanAsset = input.asset.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    // Lógica robusta para limpar e formatar o par de moedas
+    const cleanAsset = input.asset.toUpperCase().split('/')[0].trim();
+    const cleanCounterpart = (input.counterpart ?? 'USDT').toUpperCase().trim();
 
     switch (input.exchange) {
       case 'MEXC':
         // MEXC espera o formato: JASMYUSDT
-        const mexcPair = `${cleanAsset}${counterpart.toUpperCase()}`;
+        const mexcPair = `${cleanAsset}${cleanCounterpart}`;
         const mexcResponse = await getMexcPrice(mexcPair);
         price = parseFloat(mexcResponse.price);
         break;
       case 'Bitmart':
         // Bitmart espera o formato: JASMY_USDT
-        const bitmartPair = `${cleanAsset}_${counterpart.toUpperCase()}`;
+        const bitmartPair = `${cleanAsset}_${cleanCounterpart}`;
         const bitmartResponse = await getBitmartPrice(bitmartPair);
         price = parseFloat(bitmartResponse.last_price);
         break;
