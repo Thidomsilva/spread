@@ -8,6 +8,11 @@ export type BinancePriceResponse = {
   price: string;
 };
 
+type BinanceErrorResponse = {
+  code: number;
+  msg: string;
+}
+
 /**
  * Busca o preço de mercado mais recente para um par de moedas específico na Binance.
  * @param pair O par de moedas no formato 'BTCUSDT'.
@@ -20,18 +25,27 @@ export async function getBinancePrice(
     const response = await fetch(`${BINANCE_API_URL}/ticker/price?symbol=${pair}`);
 
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(
-        `Erro da API da Binance: ${response.status} - ${
-          errorData.msg || 'Erro desconhecido'
-        }`
-      );
+      // Tenta ler o corpo do erro para uma mensagem mais específica
+      try {
+        const errorData: BinanceErrorResponse = await response.json();
+        throw new Error(
+          `Erro da API da Binance: ${errorData.msg || `Status ${response.status}`}`
+        );
+      } catch (jsonError) {
+         // Se o corpo do erro não for JSON ou não puder ser lido
+         throw new Error(`Erro da API da Binance: Status ${response.status}`);
+      }
     }
 
     const data: BinancePriceResponse = await response.json();
     return data;
   } catch (error) {
     console.error(`Falha ao buscar o preço da Binance para ${pair}:`, error);
+    // Repassa o erro original que agora será mais específico
+    if (error instanceof Error) {
+        throw error;
+    }
+    // Fallback para um erro genérico
     throw new Error(
       'Não foi possível conectar à API da Binance. Verifique a conexão de rede.'
     );
