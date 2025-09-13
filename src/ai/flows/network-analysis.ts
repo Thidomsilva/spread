@@ -59,7 +59,7 @@ const getExchangeAssetNetworks = ai.defineTool(
 );
 
 // Esquema de entrada para o fluxo
-export const NetworkAnalysisInputSchema = z.object({
+const NetworkAnalysisInputSchema = z.object({
   asset: z.string().describe('O ativo que será transferido.'),
   sourceExchange: z.string().describe('A exchange de origem (de onde o saque será feito).'),
   destinationExchange: z.string().describe('A exchange de destino (para onde o depósito será feito).'),
@@ -67,7 +67,7 @@ export const NetworkAnalysisInputSchema = z.object({
 export type NetworkAnalysisInput = z.infer<typeof NetworkAnalysisInputSchema>;
 
 // Esquema de saída para o fluxo
-export const NetworkAnalysisOutputSchema = z.object({
+const NetworkAnalysisOutputSchema = z.object({
   isCompatible: z.boolean().describe('Se existe pelo menos uma rede compatível entre as exchanges.'),
   commonNetworks: z.array(z.string()).describe('A lista de redes de transferência compatíveis em comum.'),
   reasoning: z.string().describe('Uma breve explicação sobre a compatibilidade ou incompatibilidade.'),
