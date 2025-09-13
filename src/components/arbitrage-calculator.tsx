@@ -24,6 +24,34 @@ type DiagnosisStatus = 'positive' | 'negative' | 'neutral';
 
 const EXCHANGES = ["MEXC", "Bitmart", "Gate.io"];
 
+// Hook para persistir estado no localStorage
+function usePersistentState<T>(key: string, defaultValue: T): [T, React.Dispatch<React.SetStateAction<T>>] {
+  const [state, setState] = useState<T>(() => {
+    // Acessa o localStorage apenas no cliente
+    if (typeof window !== 'undefined') {
+      try {
+        const storedValue = window.localStorage.getItem(key);
+        return storedValue ? JSON.parse(storedValue) : defaultValue;
+      } catch (error) {
+        console.error(`Error reading localStorage key “${key}”:`, error);
+        return defaultValue;
+      }
+    }
+    return defaultValue;
+  });
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(key, JSON.stringify(state));
+    } catch (error) {
+      console.error(`Error setting localStorage key “${key}”:`, error);
+    }
+  }, [key, state]);
+
+  return [state, setState];
+}
+
+
 // Componente de Combobox reutilizável
 function AssetCombobox({
   value,
@@ -103,21 +131,22 @@ export default function ArbitrageCalculator() {
   const [isFetchingAssetsB, startFetchingAssetsBTransition] = useTransition();
   const { toast } = useToast();
 
-  const [priceA, setPriceA] = useState("");
-  const [priceB, setPriceB] = useState("");
-  const [initialInvestment, setInitialInvestment] = useState("100");
-  const [tradeFeeA, setTradeFeeA] = useState("0.1");
-  const [tradeFeeB, setTradeFeeB] = useState("0.1");
-  const [exchangeA, setExchangeA] = useState(EXCHANGES[0]);
-  const [exchangeB, setExchangeB] = useState(EXCHANGES[1]);
+  const [priceA, setPriceA] = usePersistentState("priceA", "");
+  const [priceB, setPriceB] = usePersistentState("priceB", "");
+  const [initialInvestment, setInitialInvestment] = usePersistentState("initialInvestment", "100");
+  const [tradeFeeA, setTradeFeeA] = usePersistentState("tradeFeeA", "0.1");
+  const [tradeFeeB, setTradeFeeB] = usePersistentState("tradeFeeB", "0.1");
+  const [exchangeA, setExchangeA] = usePersistentState("exchangeA", EXCHANGES[0]);
+  const [exchangeB, setExchangeB] = usePersistentState("exchangeB", EXCHANGES[1]);
 
-  const [assetA, setAssetA] = useState("JASMY");
-  const [assetB, setAssetB] = useState("PEPE");
+  const [assetA, setAssetA] = usePersistentState("assetA", "JASMY");
+  const [assetB, setAssetB] = usePersistentState("assetB", "PEPE");
+  
   const [networkAnalysisResult, setNetworkAnalysisResult] = useState<NetworkAnalysisOutput | null>(null);
 
   const [assetsA, setAssetsA] = useState<string[]>([]);
   const [assetsB, setAssetsB] = useState<string[]>([]);
-  const [autoRefresh, setAutoRefresh] = useState(false);
+  const [autoRefresh, setAutoRefresh] = usePersistentState("autoRefresh", false);
 
 
   const fetchAssets = useCallback(async (exchange: string, assetSetter: React.Dispatch<React.SetStateAction<string[]>>, startTransitionFunc: React.TransitionStartFunction) => {
@@ -159,9 +188,9 @@ export default function ArbitrageCalculator() {
   };
 
   const calculationResults = useMemo(() => {
-    const pA = parseFloat(priceA); // Preço do ativo A em USDT
-    const pB = parseFloat(priceB); // Preço do ativo B em USDT
-    const initialUSDTValue = parseFloat(initialInvestment); // Investimento inicial em USDT
+    const pA = parseFloat(priceA);
+    const pB = parseFloat(priceB);
+    const initialUSDTValue = parseFloat(initialInvestment);
     const feeA = parseFloat(tradeFeeA) / 100;
     const feeB = parseFloat(tradeFeeB) / 100;
 
@@ -170,21 +199,20 @@ export default function ArbitrageCalculator() {
     }
     
     // 1. Compra o Ativo A com o investimento inicial (considerando a taxa)
-    const usdtToSpendOnA = initialUSDTValue; // Sem taxa na compra inicial de USDT
-    const amountOfABought = usdtToSpendOnA / pA * (1- feeA);
+    const amountOfABought = (initialUSDTValue / pA) * (1 - feeA);
 
-    // 2. Com a quantidade de Ativo A, calcula quanto de Ativo B pode ser obtido.
-    // Esta é uma troca direta baseada no fator de preço.
+    // 2. Troca o Ativo A pelo Ativo B. O cálculo do fator considera os preços.
     const amountOfBToGet = (amountOfABought * pA) / pB;
 
     // 3. Vende o Ativo B para obter o valor final em USDT (considerando a taxa)
     const finalUSDTValue = amountOfBToGet * pB * (1 - feeB);
-
+    
     const spread = initialUSDTValue > 0 ? ((finalUSDTValue / initialUSDTValue) - 1) * 100 : 0;
     
     let diagnosis: DiagnosisStatus;
-    if (spread > 0.0001) diagnosis = 'positive';
-    else if (spread < -0.0001) diagnosis = 'negative';
+    // Corrigido para comparar os valores finais e iniciais
+    if (finalUSDTValue > initialUSDTValue) diagnosis = 'positive';
+    else if (finalUSDTValue < initialUSDTValue) diagnosis = 'negative';
     else diagnosis = 'neutral';
     
     // Análise de paridade
@@ -236,16 +264,17 @@ export default function ArbitrageCalculator() {
     startNetworkAnalysisTransition(async () => {
       setNetworkAnalysisResult(null);
       if (exchangeA === exchangeB) {
+        // Não é um erro, apenas uma condição de interface
         setNetworkAnalysisResult({
           isCompatible: false,
           commonNetworks: [],
-          reasoning: "As exchanges de origem e destino são as mesmas."
+          reasoning: "A arbitragem ocorre na mesma exchange."
         });
         return;
       }
       try {
         const input: NetworkAnalysisInput = {
-          asset: assetA,
+          asset: assetA, // Para arbitragem, a transferência é do ativo A
           sourceExchange: exchangeA,
           destinationExchange: exchangeB,
         };
@@ -290,7 +319,7 @@ export default function ArbitrageCalculator() {
             toast({
               variant: "destructive",
               title: "Análise de IA Falhou",
-              description: "Não foi possível obter os dados. Verifique sua chave de API ou tente novamente.",
+              description: error instanceof Error ? error.message : "Não foi possível obter os dados. Verifique sua chave de API ou tente novamente.",
             })
         }
     });
@@ -351,12 +380,15 @@ export default function ArbitrageCalculator() {
         })
       }
     });
-  }, [assetA, assetB, exchangeA, exchangeB, toast, assetsA, assetsB, handleNetworkAnalysis, isFetchingRealPrice]);
+  }, [assetA, assetB, exchangeA, exchangeB, toast, assetsA, assetsB, handleNetworkAnalysis, isFetchingRealPrice, setAutoRefresh, setPriceA, setPriceB]);
 
   useEffect(() => {
     if (!autoRefresh || isFetchingRealPrice) {
       return;
     }
+
+    // Executa a primeira vez imediatamente
+    handleFetchRealPrices(); 
 
     const intervalId = setInterval(() => {
       handleFetchRealPrices();
@@ -371,7 +403,7 @@ export default function ArbitrageCalculator() {
     return () => {
       clearInterval(intervalId);
       // Toast para informar que o modo ao vivo foi desativado
-      if (autoRefresh) { // Apenas mostra se estava ativo
+      if (autoRefresh) { // Apenas mostra se estava ativo ao desmontar
           toast({
               title: "Modo Ao Vivo Desativado",
           });
@@ -456,7 +488,7 @@ export default function ArbitrageCalculator() {
                     </div>
                 </div>
                  {calculationResults && (
-                    <p className="text-xs text-muted-foreground mt-2">Você recebe ≈ <span className="font-bold">{formatNumber(calculationResults.amountOfABought, 2, 6)} {assetA}</span></p>
+                    <p className="text-xs text-muted-foreground mt-2">Você recebe ≈ <span className="font-bold text-white">{formatNumber(calculationResults.amountOfABought, 2, 6)} {assetA}</span></p>
                 )}
                  <div className="grid grid-cols-1 mt-4">
                     <div className="grid gap-2">
@@ -468,7 +500,7 @@ export default function ArbitrageCalculator() {
             
             {/* Etapa 2: Troca por Ativo B */}
             <div className="p-4 rounded-lg border border-border/50 bg-background/30">
-                <Label className="text-xs text-muted-foreground">Etapa 2: Troca por Ativo B</Label>
+                <Label className="text-xs text-muted-foreground">Etapa 2: Venda do Ativo A por B</Label>
                 <div className="flex items-end gap-4 mt-2">
                     <div className="flex-1 grid gap-2">
                         <Label className="text-xs" htmlFor="asset-b">Ativo a Receber</Label>
@@ -489,7 +521,7 @@ export default function ArbitrageCalculator() {
                     </div>
                 </div>
                 {calculationResults && (
-                    <p className="text-xs text-muted-foreground mt-2">Você recebe ≈ <span className="font-bold">{formatNumber(calculationResults.amountOfBToGet, 2, 6)} {assetB}</span></p>
+                    <p className="text-xs text-muted-foreground mt-2">Você recebe ≈ <span className="font-bold text-white">{formatNumber(calculationResults.amountOfBToGet, 2, 6)} {assetB}</span></p>
                 )}
                  <div className="grid grid-cols-1 mt-4">
                     <div className="grid gap-2">
@@ -508,14 +540,14 @@ export default function ArbitrageCalculator() {
 
 
            {isAnalyzingNetworks && (
-             <div className="flex items-center justify-center text-sm text-muted-foreground">
+             <div className="flex items-center justify-center text-sm text-muted-foreground my-4">
                 <Network className="animate-spin mr-2 h-4 w-4" />
                 Analisando compatibilidade de redes para {assetA}...
               </div>
            )}
 
             {networkAnalysisResult && (
-              <div className={`text-center p-3 rounded-md border ${networkAnalysisResult.isCompatible ? 'border-success/50 bg-success/10' : 'border-destructive/50 bg-destructive/10'}`}>
+              <div className={`text-center p-3 my-4 rounded-md border ${networkAnalysisResult.isCompatible ? 'border-success/50 bg-success/10' : 'border-destructive/50 bg-destructive/10'}`}>
                 <p className={`font-bold text-lg ${networkAnalysisResult.isCompatible ? 'text-success' : 'text-destructive'}`}>
                   {networkAnalysisResult.isCompatible ? '✅ Compatível' : '❌ Incompatível'}
                 </p>
@@ -583,3 +615,5 @@ export default function ArbitrageCalculator() {
     </Card>
   );
 }
+
+    
