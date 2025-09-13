@@ -369,6 +369,12 @@ export default function ArbitrageCalculator() {
         const fetchedPriceA = priceResultA;
         const fetchedPriceB = priceResultB;
         
+        // Auto-calculate conversion factor
+        if (fetchedPriceA > 0 && fetchedPriceB > 0) {
+            const factor = fetchedPriceA / fetchedPriceB;
+            setConversionFactor(factor.toString());
+        }
+
         const fees: Record<string, number> = { 'MEXC': 0.1, 'Bitmart': 0.1, 'Gate.io': 0.2, 'Poloniex': 0.14 };
         const fetchedFeeA = fees[exchangeA] || 0.1;
         const fetchedFeeB = fees[exchangeB] || 0.1;
@@ -386,7 +392,7 @@ export default function ArbitrageCalculator() {
         const tempCalculationResults = (() => {
             const pA = fetchedPriceA;
             const pB = fetchedPriceB;
-            const fact = parseFloat(conversionFactor);
+            const fact = (pA > 0 && pB > 0) ? pA / pB : parseFloat(conversionFactor);
             const initialUSDT = parseFloat(initialInvestment);
             const tFeeA = fetchedFeeA / 100;
             const tFeeB = fetchedFeeB / 100;
@@ -438,7 +444,7 @@ export default function ArbitrageCalculator() {
   }, [
     assetA, assetB, exchangeA, exchangeB, toast, isFetchingRealPrice, 
     setPriceA, setPriceB, setTradeFeeA, setTradeFeeB, handleNetworkAnalysis, initialInvestment,
-    addNewAssetToDB, conversionFactor,
+    addNewAssetToDB, conversionFactor, setConversionFactor
   ]);
   
   const diagnosisStyles = {
