@@ -70,7 +70,7 @@ const NetworkAnalysisInputSchema = z.object({
 export type NetworkAnalysisInput = z.infer<typeof NetworkAnalysisInputSchema>;
 
 // Esquema de saída para o fluxo
-const NetworkAnalysisOutputSchema = z.object({
+export const NetworkAnalysisOutputSchema = z.object({
   isCompatible: z.boolean().describe('Se existe pelo menos uma rede compatível entre as exchanges.'),
   commonNetworks: z.array(z.string()).describe('A lista de redes de transferência compatíveis em comum.'),
   reasoning: z.string().describe('Uma breve explicação sobre a compatibilidade ou incompatibilidade.'),

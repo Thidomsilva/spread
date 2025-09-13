@@ -5,12 +5,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { RefreshCcw, TestTube, ArrowRight, Sparkles, Search, Network, ChevronsUpDown, Check, Trash } from "lucide-react";
-import { liveParityComparison, LiveParityComparisonInput } from "@/ai/flows/live-parity-comparison";
+import { RefreshCcw, TestTube, ArrowRight, Sparkles, Search, Trash } from "lucide-react";
 import { getMarketPrice, GetMarketPriceInput } from "@/ai/flows/get-market-price";
 import { networkAnalysis, NetworkAnalysisInput, NetworkAnalysisOutput } from "@/ai/flows/network-analysis";
 import { getExchangeAssets } from "@/ai/flows/get-exchange-assets";
 import { addAssetToDB } from "@/ai/flows/manage-assets-db";
+import { investmentAnalysis, InvestmentAnalysisInput } from "@/ai/flows/investment-analysis";
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -18,6 +18,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { cn } from "@/lib/utils";
 import { Switch } from "@/components/ui/switch";
+import { ChevronsUpDown, Check } from "lucide-react";
 
 
 type DiagnosisStatus = 'positive' | 'negative' | 'neutral';
@@ -26,31 +27,32 @@ const EXCHANGES = ["MEXC", "Bitmart", "Gate.io", "Poloniex"];
 
 // Hook para persistir estado no localStorage de forma segura
 function usePersistentState<T>(key: string, defaultValue: T): [T, React.Dispatch<React.SetStateAction<T>>] {
-  const [state, setState] = useState<T>(() => defaultValue);
+  const [state, setState] = useState<T>(defaultValue);
+  const [isHydrated, setIsHydrated] = useState(false);
 
-  // Efeito para carregar o estado do localStorage apenas no cliente
+  // Efeito para carregar o estado do localStorage apenas no cliente após a hidratação inicial
   useEffect(() => {
+    setIsHydrated(true);
     try {
       const storedValue = window.localStorage.getItem(key);
       if (storedValue !== null) {
         setState(JSON.parse(storedValue));
-      } else {
-        setState(defaultValue);
       }
     } catch (error) {
       console.error(`Error reading localStorage key “${key}”:`, error);
-      setState(defaultValue);
     }
-  }, [key, defaultValue]);
+  }, [key]);
 
-  // Efeito para salvar o estado no localStorage sempre que ele mudar
+  // Efeito para salvar o estado no localStorage sempre que ele mudar (e após a hidratação)
   useEffect(() => {
-    try {
-      window.localStorage.setItem(key, JSON.stringify(state));
-    } catch (error) {
-      console.error(`Error setting localStorage key “${key}”:`, error);
+    if (isHydrated) {
+      try {
+        window.localStorage.setItem(key, JSON.stringify(state));
+      } catch (error) {
+        console.error(`Error setting localStorage key “${key}”:`, error);
+      }
     }
-  }, [key, state]);
+  }, [key, state, isHydrated]);
 
   return [state, setState];
 }
@@ -128,7 +130,7 @@ function AssetCombobox({
 
 
 export default function ArbitrageCalculator() {
-  const [isPending, startTransition] = useTransition();
+  const [isAnalyzingInvestment, startInvestmentAnalysisTransition] = useTransition();
   const [isFetchingRealPrice, startRealPriceTransition] = useTransition();
   const [isAnalyzingNetworks, startNetworkAnalysisTransition] = useTransition();
   const [isFetchingAssetsA, startFetchingAssetsATransition] = useTransition();
@@ -147,6 +149,7 @@ export default function ArbitrageCalculator() {
   const [assetB, setAssetB] = usePersistentState("assetB", "PEPE");
   
   const [networkAnalysisResult, setNetworkAnalysisResult] = useState<NetworkAnalysisOutput | null>(null);
+  const [aiCommentary, setAiCommentary] = useState<string | null>(null);
 
   const [assetsA, setAssetsA] = useState<string[]>([]);
   const [assetsB, setAssetsB] = useState<string[]>([]);
@@ -205,11 +208,14 @@ export default function ArbitrageCalculator() {
     // 1. Compra o Ativo A com o investimento inicial (considerando a taxa)
     const amountOfABought = (initialUSDTValue / pA) * (1 - feeA);
 
-    // 2. Troca o Ativo A pelo Ativo B. O cálculo do fator considera os preços.
-    const amountOfBToGet = (amountOfABought * pA) / pB;
+    // 2. Vende o Ativo A para obter USDT
+    const usdtFromSellingA = amountOfABought * pA;
 
-    // 3. Vende o Ativo B para obter o valor final em USDT (considerando a taxa)
-    const finalUSDTValue = amountOfBToGet * pB * (1 - feeB);
+    // 3. Compra o Ativo B com o USDT obtido
+    const amountOfBBought = (usdtFromSellingA / pB) * (1 - feeB);
+    
+    // 4. Vende o Ativo B para obter o valor final em USDT
+    const finalUSDTValue = amountOfBBought * pB;
     
     const spread = initialUSDTValue > 0 ? ((finalUSDTValue / initialUSDTValue) - 1) * 100 : 0;
     
@@ -221,17 +227,15 @@ export default function ArbitrageCalculator() {
     
     // Análise de paridade
     const factor = pA / pB;
-    const priceB_break_even = factor > 0 ? pA / factor : 0; // Este cálculo está redundante, mas mantém a estrutura
 
     return {
       initialUSDTValue,
       amountOfABought,
-      amountOfBToGet,
+      amountOfBToGet: amountOfBBought, // Renomeado para clareza
       finalUSDTValue,
       spread,
       diagnosis,
       calculatedFactor: factor,
-      priceB_break_even
     };
   }, [priceA, priceB, initialInvestment, tradeFeeA, tradeFeeB]);
 
@@ -244,6 +248,7 @@ export default function ArbitrageCalculator() {
     setTradeFeeA("0.1");
     setTradeFeeB("0.1");
     setNetworkAnalysisResult(null);
+    setAiCommentary(null);
   };
   
   const handleReset = () => {
@@ -255,6 +260,7 @@ export default function ArbitrageCalculator() {
     setTradeFeeA("0.1");
     setTradeFeeB("0.1");
     setNetworkAnalysisResult(null);
+    setAiCommentary(null);
     setAutoRefresh(false);
   };
 
@@ -262,27 +268,31 @@ export default function ArbitrageCalculator() {
     setPriceA("");
     setPriceB("");
     setNetworkAnalysisResult(null);
+    setAiCommentary(null);
   };
 
-  const handleNetworkAnalysis = useCallback(() => {
-    startNetworkAnalysisTransition(async () => {
+  const handleNetworkAnalysis = useCallback(async () => {
+    let analysisResult: NetworkAnalysisOutput | null = null;
+    await startNetworkAnalysisTransition(async () => {
       setNetworkAnalysisResult(null);
+      setAiCommentary(null); // Limpa comentários antigos
       if (exchangeA === exchangeB) {
-        // Não é um erro, apenas uma condição de interface
-        setNetworkAnalysisResult({
+        analysisResult = {
           isCompatible: false,
           commonNetworks: [],
-          reasoning: "A arbitragem ocorre na mesma exchange."
-        });
+          reasoning: "A arbitragem ocorre na mesma exchange, não há transferência de rede."
+        };
+        setNetworkAnalysisResult(analysisResult);
         return;
       }
       try {
         const input: NetworkAnalysisInput = {
-          asset: assetA, // Para arbitragem, a transferência é do ativo A
+          asset: assetA,
           sourceExchange: exchangeA,
           destinationExchange: exchangeB,
         };
         const result = await networkAnalysis(input);
+        analysisResult = result;
         setNetworkAnalysisResult(result);
       } catch (error) {
         console.error("Network analysis failed:", error);
@@ -291,43 +301,18 @@ export default function ArbitrageCalculator() {
           title: "Falha na Análise de Rede",
           description: error instanceof Error ? error.message : "Ocorreu um erro desconhecido.",
         });
+        // Seta um resultado de erro para passar para a próxima etapa
+        analysisResult = {
+          isCompatible: false,
+          commonNetworks: [],
+          reasoning: `Falha na análise: ${error instanceof Error ? error.message : "Erro desconhecido."}`
+        };
+        setNetworkAnalysisResult(analysisResult);
       }
     });
+    return analysisResult;
   }, [assetA, exchangeA, exchangeB, toast]);
-
-  const handleAiAnalysis = () => {
-    startTransition(async () => {
-      setNetworkAnalysisResult(null);
-        const input: LiveParityComparisonInput = { assetA, assetB, exchangeA, exchangeB };
-        try {
-            const result = await liveParityComparison(input);
-            if (result) {
-              setPriceA(result.priceA.toString());
-              setPriceB(result.priceB.toString());
-              setTradeFeeA(result.feeA.toString());
-              setTradeFeeB(result.feeB.toString());
-              toast({
-                title: "Análise de IA Concluída",
-                description: "Os preços e taxas simulados foram preenchidos.",
-              });
-              handleNetworkAnalysis(); // Executa a análise de rede
-            } else {
-               toast({
-                variant: "destructive",
-                title: "Análise de IA Falhou",
-                description: "A IA não retornou um resultado. Tente novamente.",
-              })
-            }
-        } catch (error) {
-            console.error("AI analysis failed:", error);
-            toast({
-              variant: "destructive",
-              title: "Análise de IA Falhou",
-              description: error instanceof Error ? error.message : "Não foi possível obter os dados. Verifique sua chave de API ou tente novamente.",
-            })
-        }
-    });
-  };
+  
 
   // Função para adicionar um novo ativo descoberto ao DB
   const addNewAssetToDB = async (exchange: string, asset: string, assetList: string[], setAssetList: (assets: string[]) => void) => {
@@ -349,42 +334,89 @@ export default function ArbitrageCalculator() {
 
 
   const handleFetchRealPrices = useCallback(() => {
-    // Não executa se outra busca já estiver em andamento
     if (isFetchingRealPrice) return;
     
     startRealPriceTransition(async () => {
       setNetworkAnalysisResult(null);
+      setAiCommentary(null);
+      let localPriceA = "";
+      let localPriceB = "";
+      let feeA = tradeFeeA;
+      let feeB = tradeFeeB;
+
       try {
-        const inputA: GetMarketPriceInput = { 
-          exchange: exchangeA as any, 
-          asset: assetA,
-        };
-        const priceA = await getMarketPrice(inputA);
-        setPriceA(priceA.toString());
+        const inputA: GetMarketPriceInput = { exchange: exchangeA as any, asset: assetA };
+        const pA = await getMarketPrice(inputA);
+        setPriceA(pA.toString());
+        localPriceA = pA.toString();
         await addNewAssetToDB(exchangeA, assetA, assetsA, setAssetsA);
         
-        const inputB: GetMarketPriceInput = { 
-          exchange: exchangeB as any, 
-          asset: assetB,
-        };
-        const priceB = await getMarketPrice(inputB);
-        setPriceB(priceB.toString());
+        const inputB: GetMarketPriceInput = { exchange: exchangeB as any, asset: assetB };
+        const pB = await getMarketPrice(inputB);
+        setPriceB(pB.toString());
+        localPriceB = pB.toString();
         await addNewAssetToDB(exchangeB, assetB, assetsB, setAssetsB);
-
-        handleNetworkAnalysis();
-
       } catch (error) {
-        console.error("Real price fetching failed:", error);
-        // Desliga o auto-refresh em caso de erro para não ficar tentando em loop
         setAutoRefresh(false);
         toast({
           variant: "destructive",
           title: "Falha ao Buscar Preços",
           description: error instanceof Error ? error.message : "Ocorreu um erro desconhecido.",
-        })
+        });
+        return; // Aborta se os preços falharem
+      }
+
+      // 2. Analisar redes
+      const netAnalysisResult = await handleNetworkAnalysis();
+
+      // 3. Chamar a IA para análise de investimento se tudo correu bem
+      // Criamos um objeto de resultados de cálculo temporário aqui, pois o estado pode não estar atualizado ainda
+      const tempCalculationResults = (() => {
+        const pA = parseFloat(localPriceA);
+        const pB = parseFloat(localPriceB);
+        const initialUSDT = parseFloat(initialInvestment);
+        const tFeeA = parseFloat(feeA) / 100;
+        const tFeeB = parseFloat(feeB) / 100;
+        if (isNaN(pA) || isNaN(pB) || pA <= 0 || pB <= 0 || isNaN(initialUSDT) || initialUSDT <=0) return null;
+        const amountOfABought = (initialUSDT / pA) * (1 - tFeeA);
+        const usdtFromSellingA = amountOfABought * pA;
+        const amountOfBBought = (usdtFromSellingA / pB) * (1 - tFeeB);
+        const finalUSDTValue = amountOfBBought * pB;
+        const spread = initialUSDT > 0 ? ((finalUSDTValue / initialUSDT) - 1) * 100 : 0;
+        return { finalUSDTValue, spread };
+      })();
+
+      if (localPriceA && localPriceB && tempCalculationResults) {
+        startInvestmentAnalysisTransition(async () => {
+          const investmentInput: InvestmentAnalysisInput = {
+            assetA,
+            exchangeA,
+            priceA: parseFloat(localPriceA),
+            feeA: parseFloat(feeA),
+            assetB,
+            exchangeB,
+            priceB: parseFloat(localPriceB),
+            feeB: parseFloat(feeB),
+            initialInvestment: parseFloat(initialInvestment),
+            finalUSDTValue: tempCalculationResults.finalUSDTValue,
+            spread: tempCalculationResults.spread,
+            networkAnalysisResult: netAnalysisResult ?? { isCompatible: false, commonNetworks: [], reasoning: "Análise de rede não concluída."}
+          };
+          try {
+            const { commentary } = await investmentAnalysis(investmentInput);
+            setAiCommentary(commentary);
+          } catch(error) {
+             console.error("Investment analysis failed:", error);
+             setAiCommentary("A análise da IA falhou em gerar um comentário.");
+          }
+        });
       }
     });
-  }, [assetA, assetB, exchangeA, exchangeB, toast, assetsA, assetsB, handleNetworkAnalysis, isFetchingRealPrice, setAutoRefresh, setPriceA, setPriceB]);
+  }, [
+    assetA, assetB, exchangeA, exchangeB, toast, assetsA, assetsB, 
+    isFetchingRealPrice, setAutoRefresh, setPriceA, setPriceB, 
+    handleNetworkAnalysis, tradeFeeA, tradeFeeB, initialInvestment
+  ]);
 
   useEffect(() => {
     if (!autoRefresh || isFetchingRealPrice) {
@@ -421,7 +453,7 @@ export default function ArbitrageCalculator() {
     neutral: { text: "⚠️ Neutro", color: "text-muted-foreground" },
   };
   
-  const isAnyLoading = isPending || isAnalyzingNetworks || isFetchingAssetsA || isFetchingAssetsB;
+  const isAnyLoading = isAnalyzingInvestment || isAnalyzingNetworks || isFetchingAssetsA || isFetchingAssetsB;
   const isPriceLoading = isFetchingRealPrice;
 
   return (
@@ -437,13 +469,9 @@ export default function ArbitrageCalculator() {
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
               <Label className="text-sm font-medium text-primary">Ferramentas de Análise</Label>
               <div className="flex items-center gap-2">
-                <Button onClick={handleAiAnalysis} disabled={isAnyLoading || isPriceLoading} size="sm" variant="outline" className="h-8">
-                    <Sparkles className={isPending ? 'animate-spin' : ''}/>
-                    Simular com IA
-                </Button>
                 <Button onClick={handleFetchRealPrices} disabled={isAnyLoading || isPriceLoading || autoRefresh} size="sm" variant="default" className="h-8">
-                    <Search className={isPriceLoading ? 'animate-spin' : ''}/>
-                    Preços (Real)
+                    <Search className={cn("h-4 w-4", isPriceLoading && 'animate-spin')}/>
+                    Buscar Preços e Analisar
                 </Button>
               </div>
             </div>
@@ -506,12 +534,12 @@ export default function ArbitrageCalculator() {
                 </div>
             </div>
             
-            {/* Etapa 2: Troca por Ativo B */}
+            {/* Etapa 2: Venda do Ativo B */}
             <div className="p-4 rounded-lg border border-border/50 bg-background/30">
-                <Label className="text-xs text-muted-foreground">Etapa 2: Venda do Ativo A por B</Label>
+                <Label className="text-xs text-muted-foreground">Etapa 2: Venda do Ativo A por B (Simulado)</Label>
                 <div className="flex items-end gap-4 mt-2">
                     <div className="flex-1 grid gap-2">
-                        <Label className="text-xs" htmlFor="asset-b">Ativo a Receber</Label>
+                        <Label className="text-xs" htmlFor="asset-b">Para o Ativo</Label>
                         <AssetCombobox
                           value={assetB}
                           onChange={setAssetB}
@@ -544,10 +572,10 @@ export default function ArbitrageCalculator() {
             </div>
         </div>
 
-           {isAnalyzingNetworks && (
+           {(isAnalyzingNetworks || isAnalyzingInvestment) && (
              <div className="flex items-center justify-center text-sm text-muted-foreground my-4">
-                <Network className="animate-spin mr-2 h-4 w-4" />
-                Analisando compatibilidade de redes para {assetA}...
+                <Sparkles className="animate-spin mr-2 h-4 w-4" />
+                {isAnalyzingNetworks ? `Analisando redes...` : 'Consultor IA analisando a operação...'}
               </div>
            )}
 
@@ -562,6 +590,16 @@ export default function ArbitrageCalculator() {
                     Redes em comum: <span className="font-semibold">{networkAnalysisResult.commonNetworks.join(', ')}</span>
                   </p>
                 )}
+              </div>
+            )}
+            
+            {aiCommentary && (
+              <div className="p-4 my-4 rounded-lg border border-primary/30 bg-primary/10">
+                <div className="flex items-center gap-2 mb-2">
+                  <Sparkles className="h-5 w-5 text-primary" />
+                  <h4 className="font-bold text-primary">Análise do Consultor IA</h4>
+                </div>
+                <p className="text-sm text-foreground/80 whitespace-pre-wrap">{aiCommentary}</p>
               </div>
             )}
 
@@ -595,10 +633,9 @@ export default function ArbitrageCalculator() {
                             <div className="flex justify-between"><span>Preço {assetB}/USDT:</span> <span className="break-all">${formatNumber(parseFloat(priceB), 2, 8)}</span></div>
                         </div>
 
-                        <div className="space-y-2 bg-background/50 p-3 rounded-md border border-border/50">
+                         <div className="space-y-2 bg-background/50 p-3 rounded-md border border-border/50">
                             <h4 className="font-bold text-foreground text-sm pb-1">Análise de Paridade</h4>
                               <div className="flex justify-between"><span>Fator {assetA}→{assetB}:</span> <span className="break-all">{formatNumber(calculationResults.calculatedFactor, 2, 8)}</span></div>
-                              <div className="flex justify-between"><span>Preço {assetB} (break-even):</span> <span className="break-all">${formatNumber(calculationResults.priceB_break_even, 2, 8)}</span></div>
                         </div>
                       </div>
                     </AccordionContent>

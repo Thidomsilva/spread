@@ -7,3 +7,4 @@ import '@/ai/flows/get-market-price.ts';
 import '@/ai/flows/network-analysis.ts';
 import '@/ai/flows/get-exchange-assets.ts';
 import '@/ai/flows/manage-assets-db.ts';
+import '@/ai/flows/investment-analysis.ts';
