@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { RefreshCcw, TestTube, ArrowRight, Eraser, Sparkles, Search, Network, Loader2 } from "lucide-react";
+import { RefreshCcw, TestTube, ArrowRight, Eraser, Sparkles, Search, Network } from "lucide-react";
 import { liveParityComparison, LiveParityComparisonInput } from "@/ai/flows/live-parity-comparison";
 import { getMarketPrice, GetMarketPriceInput } from "@/ai/flows/get-market-price";
 import { networkAnalysis, NetworkAnalysisInput, NetworkAnalysisOutput } from "@/ai/flows/network-analysis";
@@ -41,8 +41,8 @@ export default function ArbitrageCalculator() {
   const [assetsB, setAssetsB] = useState<string[]>([]);
 
 
-  const fetchAssets = useCallback(async (exchange: string, assetSetter: React.Dispatch<React.SetStateAction<string[]>>, startTransition: React.TransitionStartFunction) => {
-    startTransition(async () => {
+  const fetchAssets = useCallback(async (exchange: string, assetSetter: React.Dispatch<React.SetStateAction<string[]>>, startTransitionFunc: React.TransitionStartFunction) => {
+    startTransitionFunc(async () => {
       try {
         const result = await getExchangeAssets({ exchange });
         assetSetter(result.assets);
@@ -100,13 +100,13 @@ export default function ArbitrageCalculator() {
     const spread = usdtInitial > 0 ? ((USDT_final_liquido / usdtInitial) - 1) * 100 : 0;
     
     let diagnosis: DiagnosisStatus;
-    if (spread > 0.1) diagnosis = 'positive';
-    else if (spread < -0.1) diagnosis = 'negative';
+    if (spread > 0) diagnosis = 'positive';
+    else if (spread < 0) diagnosis = 'negative';
     else diagnosis = 'neutral';
     
     const A_equivalente = pB * (1/factor);
     const delta_relativo = pA > 0 ? ((A_equivalente / pA) - 1) * 100 : 0;
-    const preco_B_break_even = factor > 0 ? pA * factor : 0;
+    const preco_B_break_even = factor > 0 ? pA / factor : 0;
 
     return {
       A_bruto,
@@ -382,27 +382,27 @@ export default function ArbitrageCalculator() {
                       {formatNumber(triResults.spread, 2, 2)}%
                   </p>
                 </div>
-                  <div className="flex justify-center items-baseline text-center gap-3">
-                    <p className="text-2xl text-muted-foreground">${formatNumber(parseFloat(initialUSDT),2,2)}</p>
-                    <ArrowRight className="w-6 h-6 text-primary/50" />
-                    <p className={`text-2xl font-bold ${diagnosisStyles[triResults.diagnosis].color}`}>
-                        ${formatNumber(triResults.USDT_final_liquido, 2, 2)}
-                    </p>
-                  </div>
+                <div className="flex flex-col sm:flex-row justify-center items-center text-center gap-2 sm:gap-3 flex-wrap">
+                  <p className="text-2xl text-muted-foreground">${formatNumber(parseFloat(initialUSDT),2,2)}</p>
+                  <ArrowRight className="w-6 h-6 text-primary/50 hidden sm:block" />
+                  <p className={`text-2xl font-bold break-all ${diagnosisStyles[triResults.diagnosis].color}`}>
+                      ${formatNumber(triResults.USDT_final_liquido, 2, 2)}
+                  </p>
+                </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2 text-xs text-muted-foreground bg-background/50 p-3 rounded-md border border-border/50">
                       <h4 className="font-bold text-foreground text-sm pb-1">Detalhes da Operação</h4>
-                      <div className="flex justify-between"><span>A (bruto):</span> <span>{formatNumber(triResults.A_bruto, 4)}</span></div>
-                      <div className="flex justify-between"><span>A (pós-taxa):</span> <span>{formatNumber(triResults.A_pos_compra, 4)}</span></div>
-                      <div className="flex justify-between"><span>B (recebido):</span> <span>{formatNumber(triResults.B_recebido, 4)}</span></div>
+                      <div className="flex justify-between"><span>A (bruto):</span> <span className="break-all">{formatNumber(triResults.A_bruto, 4)}</span></div>
+                      <div className="flex justify-between"><span>A (pós-taxa):</span> <span className="break-all">{formatNumber(triResults.A_pos_compra, 4)}</span></div>
+                      <div className="flex justify-between"><span>B (recebido):</span> <span className="break-all">{formatNumber(triResults.B_recebido, 4)}</span></div>
                   </div>
 
                   <div className="space-y-2 text-xs text-muted-foreground bg-background/50 p-3 rounded-md border border-border/50">
                       <h4 className="font-bold text-foreground text-sm pb-1">Análise de Paridade</h4>
-                        <div className="flex justify-between"><span>Fator A→B (calculado):</span> <span>{formatNumber(triResults.calculatedFactor, 2, 8)}</span></div>
+                        <div className="flex justify-between"><span>Fator A→B:</span> <span className="break-all">{formatNumber(triResults.calculatedFactor, 2, 8)}</span></div>
                         <div className="flex justify-between"><span>Delta Relativo:</span> <span className={triResults.delta_relativo > 0 ? 'text-success' : 'text-destructive'}>{formatNumber(triResults.delta_relativo, 2, 2)}%</span></div>
-                        <div className="flex justify-between"><span>Preço B (break-even):</span> <span>${formatNumber(triResults.preco_B_break_even, 2, 8)}</span></div>
+                        <div className="flex justify-between"><span>Preço B (break-even):</span> <span className="break-all">${formatNumber(triResults.preco_B_break_even, 2, 8)}</span></div>
                   </div>
                 </div>
               </>
@@ -421,5 +421,3 @@ export default function ArbitrageCalculator() {
     </Card>
   );
 }
-
-    
