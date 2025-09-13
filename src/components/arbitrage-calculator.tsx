@@ -6,8 +6,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { RefreshCcw, TestTube, ArrowRight, Eraser, Sparkles } from "lucide-react";
+import { RefreshCcw, TestTube, ArrowRight, Eraser, Sparkles, Search } from "lucide-react";
 import { liveParityComparison, LiveParityComparisonInput } from "@/ai/flows/live-parity-comparison";
+import { getMarketPrice, GetMarketPriceInput } from "@/ai/flows/get-market-price";
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -19,6 +20,7 @@ const EXCHANGES = ["Binance", "MEXC", "Bitmart", "Gate.io"];
 export default function ArbitrageCalculator() {
   const [mode, setMode] = useState<CalculatorMode>('simple');
   const [isPending, startTransition] = useTransition();
+  const [isFetchingRealPrice, startRealPriceTransition] = useTransition();
   const { toast } = useToast();
 
   // Simple Spread States
@@ -35,7 +37,7 @@ export default function ArbitrageCalculator() {
   const [tradeFeeA, setTradeFeeA] = useState("0");
   const [tradeFeeB, setTradeFeeB] = useState("0");
   const [exchangeA, setExchangeA] = useState(EXCHANGES[0]);
-  const [exchangeB, setExchangeB] = useState(EXCHANGES[1]);
+  const [exchangeB, setExchangeB] = useState(EXCHANGES[0]);
 
 
   // AI State
@@ -165,6 +167,10 @@ export default function ArbitrageCalculator() {
               setTriPriceA(result.priceA.toString());
               setTriPriceB(result.priceB.toString());
               setFactorAB(result.factorAB.toString());
+              toast({
+                title: "Análise de IA Concluída",
+                description: "Os preços simulados foram preenchidos.",
+              })
             } else {
                toast({
                 variant: "destructive",
@@ -183,6 +189,39 @@ export default function ArbitrageCalculator() {
     });
   };
 
+  const handleFetchRealPrices = () => {
+    startRealPriceTransition(async () => {
+      try {
+        const inputA: GetMarketPriceInput = { 
+          exchange: exchangeA as any, 
+          asset: assetA,
+        };
+        const priceA = await getMarketPrice(inputA);
+        setTriPriceA(priceA.toString());
+        
+        const inputB: GetMarketPriceInput = { 
+          exchange: exchangeB as any, 
+          asset: assetB,
+        };
+        const priceB = await getMarketPrice(inputB);
+        setTriPriceB(priceB.toString());
+
+        toast({
+            title: "Preços Reais Obtidos",
+            description: `Preços de ${assetA} e ${assetB} atualizados.`,
+        });
+
+      } catch (error) {
+        console.error("Real price fetching failed:", error);
+        toast({
+          variant: "destructive",
+          title: "Falha ao Buscar Preços",
+          description: error instanceof Error ? error.message : "Ocorreu um erro desconhecido.",
+        })
+      }
+    });
+  }
+
   useEffect(() => {
     handleReset();
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -193,6 +232,8 @@ export default function ArbitrageCalculator() {
     negative: { text: "❌ Arbitragem Negativa", color: "text-destructive" },
     neutral: { text: "⚠️ Neutro", color: "text-muted-foreground" },
   };
+  
+  const isAnyLoading = isPending || isFetchingRealPrice;
 
   return (
     <Card className="w-full max-w-lg bg-card/50 backdrop-blur-sm">
@@ -262,22 +303,31 @@ export default function ArbitrageCalculator() {
 
           <TabsContent value="triangulation">
              <div className="grid grid-cols-1 gap-4 mt-4">
-              <div className="bg-background/30 p-3 rounded-md border border-border/20 space-y-2">
-                   <Label className="text-xs text-muted-foreground">Análise com IA</Label>
+              <div className="bg-background/30 p-3 rounded-md border border-border/20 space-y-3">
+                   <div className="flex items-center justify-between">
+                     <Label className="text-xs text-muted-foreground">Ativos para Análise</Label>
+                      <div className="flex gap-2">
+                        <Button onClick={handleAiAnalysis} disabled={isAnyLoading} size="sm" variant="outline" className="h-7 text-xs">
+                            <Sparkles className={isPending ? 'animate-spin' : ''}/>
+                            Análise IA
+                        </Button>
+                         <Button onClick={handleFetchRealPrices} disabled={isAnyLoading} size="sm" variant="outline" className="h-7 text-xs">
+                            <Search className={isFetchingRealPrice ? 'animate-spin' : ''}/>
+                            Buscar Preços
+                        </Button>
+                      </div>
+                   </div>
                    <div className="flex items-center gap-2">
                       <Input id="asset-a" placeholder="Ativo A" value={assetA} onChange={e => setAssetA(e.target.value.toUpperCase())} className="text-center"/>
                       <ArrowRight className="w-4 h-4 text-muted-foreground/50 shrink-0"/>
                       <Input id="asset-b" placeholder="Ativo B" value={assetB} onChange={e => setAssetB(e.target.value.toUpperCase())} className="text-center"/>
-                      <Button onClick={handleAiAnalysis} disabled={isPending} size="icon" variant="outline">
-                          <Sparkles className={isPending ? 'animate-spin' : ''}/>
-                      </Button>
                    </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                   <div className="grid gap-2">
                       <Label>Comprar A em</Label>
-                      <Select value={exchangeA} onValueChange={setExchangeA}>
+                      <Select value={exchangeA} onValueChange={setExchangeA} disabled={isAnyLoading}>
                           <SelectTrigger>
                               <SelectValue placeholder="Selecione a Exchange" />
                           </SelectTrigger>
@@ -288,7 +338,7 @@ export default function ArbitrageCalculator() {
                   </div>
                   <div className="grid gap-2">
                       <Label>Vender B em</Label>
-                      <Select value={exchangeB} onValueChange={setExchangeB}>
+                      <Select value={exchangeB} onValueChange={setExchangeB} disabled={isAnyLoading}>
                           <SelectTrigger>
                               <SelectValue placeholder="Selecione a Exchange" />
                           </SelectTrigger>
@@ -302,29 +352,29 @@ export default function ArbitrageCalculator() {
               <div className="grid grid-cols-3 gap-4">
                 <div className="grid gap-2">
                   <Label htmlFor="tri-price-a">Preço A/USDT</Label>
-                  <Input id="tri-price-a" type="number" placeholder="0.0067" value={triPriceA} onChange={e => setTriPriceA(e.target.value)} />
+                  <Input id="tri-price-a" type="number" placeholder="0.0067" value={triPriceA} onChange={e => setTriPriceA(e.target.value)} disabled={isAnyLoading} />
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="tri-price-b">Preço B/USDT</Label>
-                  <Input id="tri-price-b" type="number" placeholder="0.4920" value={triPriceB} onChange={e => setTriPriceB(e.target.value)} />
+                  <Input id="tri-price-b" type="number" placeholder="0.4920" value={triPriceB} onChange={e => setTriPriceB(e.target.value)} disabled={isAnyLoading} />
                 </div>
                  <div className="grid gap-2">
                   <Label htmlFor="factor-ab">Fator A→B</Label>
-                  <Input id="factor-ab" type="number" value={factorAB} onChange={e => setFactorAB(e.target.value)} />
+                  <Input id="factor-ab" type="number" value={factorAB} onChange={e => setFactorAB(e.target.value)} disabled={isAnyLoading} />
                 </div>
               </div>
               <div className="grid grid-cols-3 gap-4">
                 <div className="grid gap-2">
                   <Label htmlFor="initial-usdt">USDT Inicial</Label>
-                  <Input id="initial-usdt" type="number" value={initialUSDT} onChange={e => setInitialUSDT(e.target.value)} />
+                  <Input id="initial-usdt" type="number" value={initialUSDT} onChange={e => setInitialUSDT(e.target.value)} disabled={isAnyLoading} />
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="trade-fee-a">Taxa Compra A (%)</Label>
-                  <Input id="trade-fee-a" type="number" value={tradeFeeA} onChange={e => setTradeFeeA(e.target.value)} />
+                  <Input id="trade-fee-a" type="number" value={tradeFeeA} onChange={e => setTradeFeeA(e.target.value)} disabled={isAnyLoading} />
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="trade-fee-b">Taxa Venda B (%)</Label>
-                  <Input id="trade-fee-b" type="number" value={tradeFeeB} onChange={e => setTradeFeeB(e.target.value)} />
+                  <Input id="trade-fee-b" type="number" value={tradeFeeB} onChange={e => setTradeFeeB(e.target.value)} disabled={isAnyLoading} />
                 </div>
               </div>
 
@@ -368,9 +418,9 @@ export default function ArbitrageCalculator() {
         </Tabs>
 
         <div className="flex gap-2 pt-4 border-t border-border/50 mt-4">
-          <Button onClick={handleExample} variant="outline" className="w-full"><TestTube /> Exemplo</Button>
-          <Button onClick={handleClearFees} variant="outline" className="w-full"><Eraser/> Zerar Taxas</Button>
-          <Button onClick={handleReset} variant="ghost" className="w-full"><RefreshCcw /> Reset</Button>
+          <Button onClick={handleExample} variant="outline" className="w-full" disabled={isAnyLoading}><TestTube /> Exemplo</Button>
+          <Button onClick={handleClearFees} variant="outline" className="w-full" disabled={isAnyLoading}><Eraser/> Zerar Taxas</Button>
+          <Button onClick={handleReset} variant="ghost" className="w-full" disabled={isAnyLoading}><RefreshCcw /> Reset</Button>
         </div>
       </CardContent>
     </Card>
