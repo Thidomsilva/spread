@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect, useTransition } from "react";
+import { useState, useMemo, useEffect, useTransition, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -189,7 +189,7 @@ export default function ArbitrageCalculator() {
     });
   };
 
-  const handleFetchRealPrices = () => {
+  const handleFetchRealPrices = useCallback(() => {
     startRealPriceTransition(async () => {
       try {
         const inputA: GetMarketPriceInput = { 
@@ -220,7 +220,7 @@ export default function ArbitrageCalculator() {
         })
       }
     });
-  }
+  }, [assetA, assetB, exchangeA, exchangeB, toast]);
 
   useEffect(() => {
     handleReset();
@@ -426,3 +426,5 @@ export default function ArbitrageCalculator() {
     </Card>
   );
 }
+
+    
