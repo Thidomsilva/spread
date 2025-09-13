@@ -119,13 +119,19 @@ const liveParityComparisonFlow = ai.defineFlow(
       `Analisando paridade com IA para ${input.assetA} -> ${input.assetB}`
     );
 
-    const {output} = await liveParityPrompt(input);
+    try {
+      const {output} = await liveParityPrompt(input);
     
-    // Se a IA não retornar um resultado, lança um erro.
-    if (!output) {
-      throw new Error('A análise da IA não retornou um resultado válido.');
+      // Se a IA não retornar um resultado, lança um erro.
+      if (!output) {
+        throw new Error('A análise da IA não retornou um resultado válido.');
+      }
+      
+      return output;
+
+    } catch (error) {
+       console.error("Falha no fluxo de comparação de paridade:", error);
+       throw new Error("A análise da IA falhou em gerar um resultado.");
     }
-    
-    return output;
   }
 );
