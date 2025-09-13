@@ -11,8 +11,6 @@ import { RefreshCcw, TestTube2, ArrowRight, Eraser, AlertTriangle } from "lucide
 type DiagnosisStatus = 'positive' | 'negative' | 'neutral';
 type CalculatorMode = 'simple' | 'triangulation';
 
-const FIXED_NETWORK_FEE = 200;
-
 export default function ArbitrageCalculator() {
   const [mode, setMode] = useState<CalculatorMode>('simple');
 
@@ -77,12 +75,10 @@ export default function ArbitrageCalculator() {
 
     const A_bruto = usdtInitial / pA;
     const A_pos_compra = A_bruto * (1 - feeA);
-    const A_liquido_swap = Math.max(A_pos_compra - FIXED_NETWORK_FEE, 0);
-    const B_recebido = A_liquido_swap * factor;
+    const B_recebido = A_pos_compra * factor;
     const USDT_final_bruto = B_recebido * pB;
     const USDT_final_liquido = USDT_final_bruto * (1 - feeB);
     const spread = usdtInitial > 0 ? ((USDT_final_liquido / usdtInitial) - 1) * 100 : 0;
-    const insufficientBalance = A_pos_compra <= FIXED_NETWORK_FEE;
     
     let diagnosis: DiagnosisStatus;
     if (spread > 0.1) diagnosis = 'positive';
@@ -97,12 +93,10 @@ export default function ArbitrageCalculator() {
     return {
       A_bruto,
       A_pos_compra,
-      A_liquido_swap,
       B_recebido,
       USDT_final_liquido,
       spread,
       diagnosis,
-      insufficientBalance,
       A_equivalente,
       delta_relativo,
       preco_B_break_even
@@ -258,34 +252,24 @@ export default function ArbitrageCalculator() {
                 <div className="border-t border-border/50 pt-4 mt-2 space-y-4">
                   {triResults ? (
                     <>
-                      {triResults.insufficientBalance ? (
-                         <div className="flex items-center justify-center text-center text-destructive p-4 bg-destructive/10 rounded-md">
-                          <AlertTriangle className="mr-2" />
-                           <p className="text-sm font-bold">Saldo insuficiente após taxa fixa de {FIXED_NETWORK_FEE} A</p>
-                         </div>
-                      ) : (
-                        <>
-                          <div className="text-center">
-                             <p className="text-xs text-muted-foreground">Spread Líquido</p>
-                            <p className={`text-3xl font-bold ${diagnosisStyles[triResults.diagnosis].color}`}>
-                               {formatNumber(triResults.spread, 2, 2)}%
-                            </p>
-                          </div>
-                           <div className="flex justify-center items-baseline text-center gap-2">
-                              <p className="text-lg text-muted-foreground">${formatNumber(parseFloat(initialUSDT),2,2)}</p>
-                              <ArrowRight className="w-5 h-5 text-muted-foreground/50" />
-                              <p className={`text-lg font-bold ${diagnosisStyles[triResults.diagnosis].color}`}>
-                                 ${formatNumber(triResults.USDT_final_liquido, 2, 2)}
-                              </p>
-                           </div>
-                        </>
-                      )}
+                      <div className="text-center">
+                          <p className="text-xs text-muted-foreground">Spread Líquido</p>
+                        <p className={`text-3xl font-bold ${diagnosisStyles[triResults.diagnosis].color}`}>
+                            {formatNumber(triResults.spread, 2, 2)}%
+                        </p>
+                      </div>
+                        <div className="flex justify-center items-baseline text-center gap-2">
+                          <p className="text-lg text-muted-foreground">${formatNumber(parseFloat(initialUSDT),2,2)}</p>
+                          <ArrowRight className="w-5 h-5 text-muted-foreground/50" />
+                          <p className={`text-lg font-bold ${diagnosisStyles[triResults.diagnosis].color}`}>
+                              ${formatNumber(triResults.USDT_final_liquido, 2, 2)}
+                          </p>
+                        </div>
                       
                       <div className="space-y-2 text-xs text-muted-foreground bg-background/50 p-3 rounded-md border border-border/20">
                           <h4 className="font-bold text-foreground text-sm pb-1">Detalhes da Operação</h4>
                           <div className="flex justify-between"><span>A (bruto):</span> <span>{formatNumber(triResults.A_bruto, 4)}</span></div>
                           <div className="flex justify-between"><span>A (pós-swap fee):</span> <span>{formatNumber(triResults.A_pos_compra, 4)}</span></div>
-                          <div className="flex justify-between"><span>A (líquido p/ swap, –{FIXED_NETWORK_FEE} A):</span> <span className={triResults.insufficientBalance ? 'text-destructive' : ''}>{formatNumber(triResults.A_liquido_swap, 4)}</span></div>
                           <div className="flex justify-between"><span>B (recebido):</span> <span>{formatNumber(triResults.B_recebido, 4)}</span></div>
                       </div>
 
