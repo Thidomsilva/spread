@@ -2,10 +2,9 @@
 
 import { useState, useMemo, useEffect, useTransition, useCallback } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RefreshCcw, TestTube, ArrowRight, Eraser, Sparkles, Search, Network } from "lucide-react";
 import { liveParityComparison, LiveParityComparisonInput } from "@/ai/flows/live-parity-comparison";
 import { getMarketPrice, GetMarketPriceInput } from "@/ai/flows/get-market-price";
@@ -14,22 +13,14 @@ import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 type DiagnosisStatus = 'positive' | 'negative' | 'neutral';
-type CalculatorMode = 'simple' | 'triangulation';
 
 const EXCHANGES = ["MEXC", "Bitmart", "Gate.io"];
 
 export default function ArbitrageCalculator() {
-  const [mode, setMode] = useState<CalculatorMode>('simple');
   const [isPending, startTransition] = useTransition();
   const [isFetchingRealPrice, startRealPriceTransition] = useTransition();
   const [isAnalyzingNetworks, startNetworkAnalysisTransition] = useTransition();
   const { toast } = useToast();
-
-  // Simple Spread States
-  const [priceA, setPriceA] = useState("");
-  const [priceB, setPriceB] = useState("");
-  const [baseAmount, setBaseAmount] = useState("100");
-  const [tradeFee, setTradeFee] = useState("0");
 
   // Triangulation States
   const [triPriceA, setTriPriceA] = useState("");
@@ -53,29 +44,6 @@ export default function ArbitrageCalculator() {
       maximumFractionDigits: maxDigits,
     });
   };
-
-  const simpleResults = useMemo(() => {
-    const pA = parseFloat(priceA);
-    const pB = parseFloat(priceB);
-    const amount = parseFloat(baseAmount) || 0;
-    const fee = parseFloat(tradeFee) / 100;
-
-    if (isNaN(pA) || isNaN(pB) || pA <= 0 || pB <= 0) {
-      return null;
-    }
-
-    const absoluteDifference = pB - pA;
-    const spreadPercentage = (absoluteDifference / pA) * 100;
-    const netSpreadPercentage = spreadPercentage - (fee * 2 * 100);
-    const estimatedProfit = amount * (netSpreadPercentage / 100);
-
-    let diagnosis: DiagnosisStatus;
-    if (netSpreadPercentage > 0.1) diagnosis = 'positive';
-    else if (netSpreadPercentage < -0.1) diagnosis = 'negative';
-    else diagnosis = 'neutral';
-
-    return { absoluteDifference, spreadPercentage, netSpreadPercentage, estimatedProfit, diagnosis };
-  }, [priceA, priceB, baseAmount, tradeFee]);
 
   const triResults = useMemo(() => {
     const pA = parseFloat(triPriceA);
@@ -123,42 +91,27 @@ export default function ArbitrageCalculator() {
   }, [triPriceA, triPriceB, initialUSDT, tradeFeeA, tradeFeeB]);
 
   const handleExample = () => {
-    if (mode === 'simple') {
-      setPriceA("0.00670");
-      setPriceB("0.00690");
-      setBaseAmount("100");
-      setTradeFee("0");
-    } else {
-      setAssetA("JASMY");
-      setAssetB("PEPE");
-      setTriPriceA("0.0315");
-      setTriPriceB("0.0000118");
-      setInitialUSDT("250");
-      setTradeFeeA("0");
-      setTradeFeeB("0");
-    }
+    setAssetA("JASMY");
+    setAssetB("PEPE");
+    setTriPriceA("0.0315");
+    setTriPriceB("0.0000118");
+    setInitialUSDT("250");
+    setTradeFeeA("0");
+    setTradeFeeB("0");
   };
   
   const handleReset = () => {
-    if (mode === 'simple') {
-      setPriceA("");
-      setPriceB("");
-      setBaseAmount("100");
-      setTradeFee("0");
-    } else {
-      setAssetA("JASMY");
-      setAssetB("PEPE");
-      setTriPriceA("");
-      setTriPriceB("");
-      setInitialUSDT("100");
-      setTradeFeeA("0");
-      setTradeFeeB("0");
-      setNetworkAnalysisResult(null);
-    }
+    setAssetA("JASMY");
+    setAssetB("PEPE");
+    setTriPriceA("");
+    setTriPriceB("");
+    setInitialUSDT("100");
+    setTradeFeeA("0");
+    setTradeFeeB("0");
+    setNetworkAnalysisResult(null);
   };
 
   const handleClearFees = () => {
-    setTradeFee("0");
     setTradeFeeA("0");
     setTradeFeeB("0");
   };
@@ -262,12 +215,6 @@ export default function ArbitrageCalculator() {
     });
   }, [assetA, exchangeA, exchangeB, toast]);
 
-
-  useEffect(() => {
-    handleReset();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode]);
-
   const diagnosisStyles = {
     positive: { text: "✅ Arbitragem Positiva", color: "text-success" },
     negative: { text: "❌ Arbitragem Negativa", color: "text-destructive" },
@@ -277,205 +224,145 @@ export default function ArbitrageCalculator() {
   const isAnyLoading = isPending || isFetchingRealPrice || isAnalyzingNetworks;
 
   return (
-    <Card className="w-full max-w-lg bg-card/50 backdrop-blur-sm">
-      <CardContent className="p-6">
-        <Tabs value={mode} onValueChange={(value) => setMode(value as CalculatorMode)} className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="simple">Spread Simples</TabsTrigger>
-            <TabsTrigger value="triangulation">Triangulação</TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="simple">
-            <div className="grid grid-cols-1 gap-4 mt-4">
-              <div className="grid grid-cols-2 items-end gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="price-a">Preço Exchange A</Label>
-                  <Input id="price-a" type="number" placeholder="0.00670" value={priceA} onChange={e => setPriceA(e.target.value)} />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="price-b">Preço Exchange B</Label>
-                  <Input id="price-b" type="number" placeholder="0.00690" value={priceB} onChange={e => setPriceB(e.target.value)} />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="base-amount">Valor Base (USDT)</Label>
-                  <Input id="base-amount" type="number" value={baseAmount} onChange={e => setBaseAmount(e.target.value)} />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="trade-fee">Taxa de Trade (%)</Label>
-                  <Input id="trade-fee" type="number" value={tradeFee} onChange={e => setTradeFee(e.target.value)} />
+    <Card className="w-full max-w-lg bg-card/50 backdrop-blur-sm border-primary/20 shadow-primary/10 shadow-2xl">
+      <CardHeader className="text-center">
+        <CardTitle className="text-2xl">Calculadora de Arbitragem</CardTitle>
+        <CardDescription>Analise oportunidades de triangulação entre exchanges.</CardDescription>
+      </CardHeader>
+      <CardContent className="p-6 pt-2">
+        <div className="grid grid-cols-1 gap-6">
+          <div className="bg-background/50 p-4 rounded-lg border border-border/50 space-y-4">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-medium text-primary">Ferramentas de Análise</Label>
+                <div className="flex gap-2">
+                  <Button onClick={handleAiAnalysis} disabled={isAnyLoading} size="sm" variant="outline" className="h-8">
+                      <Sparkles className={isPending ? 'animate-spin' : ''}/>
+                      Preços (IA)
+                  </Button>
+                  <Button onClick={handleFetchRealPrices} disabled={isAnyLoading} size="sm" variant="default" className="h-8">
+                      <Search className={isFetchingRealPrice ? 'animate-spin' : ''}/>
+                      Preços (Real)
+                  </Button>
                 </div>
               </div>
+              <div className="flex items-center gap-3">
+                <Input id="asset-a" placeholder="Ativo A" value={assetA} onChange={e => setAssetA(e.target.value.toUpperCase())} className="text-center font-bold text-lg"/>
+                <ArrowRight className="w-5 h-5 text-primary/50 shrink-0"/>
+                <Input id="asset-b" placeholder="Ativo B" value={assetB} onChange={e => setAssetB(e.target.value.toUpperCase())} className="text-center font-bold text-lg"/>
+              </div>
+          </div>
 
-              <div className="border-t border-border/50 pt-4 mt-2 space-y-4">
-                {simpleResults ? (
-                  <>
-                    <div className="text-center">
-                      <p className={`text-lg font-bold ${diagnosisStyles[simpleResults.diagnosis].color}`}>
-                        {diagnosisStyles[simpleResults.diagnosis].text}
-                      </p>
-                    </div>
-                    <div className="flex justify-between items-center text-center">
-                      <div>
-                        <p className="text-xs text-muted-foreground">Spread Líquido</p>
-                        <p className={`text-2xl font-bold ${diagnosisStyles[simpleResults.diagnosis].color}`}>
-                          {formatNumber(simpleResults.netSpreadPercentage, 2, 2)}%
-                        </p>
-                      </div>
-                      <ArrowRight className="w-6 h-6 text-muted-foreground/50" />
-                      <div>
-                        <p className="text-xs text-muted-foreground">Lucro Estimado</p>
-                        <p className={`text-2xl font-bold ${diagnosisStyles[simpleResults.diagnosis].color}`}>
-                          ${formatNumber(simpleResults.estimatedProfit, 2, 2)}
-                        </p>
-                      </div>
-                    </div>
-                    <p className="text-center text-xs text-muted-foreground pt-2">
-                      Diferença Absoluta: ${formatNumber(simpleResults.absoluteDifference, 2, 5)}
-                    </p>
-                  </>
-                ) : (
-                  <div className="text-center text-muted-foreground py-8">Aguardando preços válidos...</div>
-                )}
+          <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                  <Label>Comprar A em</Label>
+                  <Select value={exchangeA} onValueChange={setExchangeA} disabled={isAnyLoading}>
+                      <SelectTrigger>
+                          <SelectValue placeholder="Selecione a Exchange" />
+                      </SelectTrigger>
+                      <SelectContent>
+                          {EXCHANGES.map(ex => <SelectItem key={ex} value={ex}>{ex}</SelectItem>)}
+                      </SelectContent>
+                  </Select>
               </div>
+              <div className="grid gap-2">
+                  <Label>Vender A (ou B) em</Label>
+                  <Select value={exchangeB} onValueChange={setExchangeB} disabled={isAnyLoading}>
+                      <SelectTrigger>
+                          <SelectValue placeholder="Selecione a Exchange" />
+                      </SelectTrigger>
+                      <SelectContent>
+                          {EXCHANGES.map(ex => <SelectItem key={ex} value={ex}>{ex}</SelectItem>)}
+                      </SelectContent>
+                  </Select>
+              </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="grid gap-2">
+              <Label htmlFor="tri-price-a">Preço A/USDT</Label>
+              <Input id="tri-price-a" type="number" placeholder="0.0067" value={triPriceA} onChange={e => setTriPriceA(e.target.value)} disabled={isAnyLoading} />
             </div>
-          </TabsContent>
-
-          <TabsContent value="triangulation">
-             <div className="grid grid-cols-1 gap-4 mt-4">
-              <div className="bg-background/30 p-3 rounded-md border border-border/20 space-y-3">
-                   <div className="flex items-center justify-between">
-                     <Label className="text-xs text-muted-foreground">Ferramentas de Análise</Label>
-                      <div className="flex gap-2">
-                        <Button onClick={handleAiAnalysis} disabled={isAnyLoading} size="sm" variant="outline" className="h-7 text-xs">
-                            <Sparkles className={isPending ? 'animate-spin' : ''}/>
-                            Preços (IA)
-                        </Button>
-                         <Button onClick={handleFetchRealPrices} disabled={isAnyLoading} size="sm" variant="outline" className="h-7 text-xs">
-                            <Search className={isFetchingRealPrice ? 'animate-spin' : ''}/>
-                            Preços (Real)
-                        </Button>
-                      </div>
-                   </div>
-                   <div className="flex items-center gap-2">
-                      <Input id="asset-a" placeholder="Ativo A" value={assetA} onChange={e => setAssetA(e.target.value.toUpperCase())} className="text-center"/>
-                      <ArrowRight className="w-4 h-4 text-muted-foreground/50 shrink-0"/>
-                      <Input id="asset-b" placeholder="Ativo B" value={assetB} onChange={e => setAssetB(e.target.value.toUpperCase())} className="text-center"/>
-                   </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                  <div className="grid gap-2">
-                      <Label>Comprar A em</Label>
-                      <Select value={exchangeA} onValueChange={setExchangeA} disabled={isAnyLoading}>
-                          <SelectTrigger>
-                              <SelectValue placeholder="Selecione a Exchange" />
-                          </SelectTrigger>
-                          <SelectContent>
-                              {EXCHANGES.map(ex => <SelectItem key={ex} value={ex}>{ex}</SelectItem>)}
-                          </SelectContent>
-                      </Select>
-                  </div>
-                  <div className="grid gap-2">
-                      <Label>Vender A (ou B) em</Label>
-                      <Select value={exchangeB} onValueChange={setExchangeB} disabled={isAnyLoading}>
-                          <SelectTrigger>
-                              <SelectValue placeholder="Selecione a Exchange" />
-                          </SelectTrigger>
-                          <SelectContent>
-                              {EXCHANGES.map(ex => <SelectItem key={ex} value={ex}>{ex}</SelectItem>)}
-                          </SelectContent>
-                      </Select>
-                  </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="tri-price-a">Preço A/USDT</Label>
-                  <Input id="tri-price-a" type="number" placeholder="0.0067" value={triPriceA} onChange={e => setTriPriceA(e.target.value)} disabled={isAnyLoading} />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="tri-price-b">Preço B/USDT</Label>
-                  <Input id="tri-price-b" type="number" placeholder="0.4920" value={triPriceB} onChange={e => setTriPriceB(e.target.value)} disabled={isAnyLoading} />
-                </div>
-              </div>
-              <div className="grid grid-cols-3 gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="initial-usdt">USDT Inicial</Label>
-                  <Input id="initial-usdt" type="number" value={initialUSDT} onChange={e => setInitialUSDT(e.target.value)} disabled={isAnyLoading} />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="trade-fee-a">Taxa Compra A (%)</Label>
-                  <Input id="trade-fee-a" type="number" value={tradeFeeA} onChange={e => setTradeFeeA(e.target.value)} disabled={isAnyLoading} />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="trade-fee-b">Taxa Venda B (%)</Label>
-                  <Input id="trade-fee-b" type="number" value={tradeFeeB} onChange={e => setTradeFeeB(e.target.value)} disabled={isAnyLoading} />
-                </div>
-              </div>
-
-               <div className="border-t border-border/50 pt-4 mt-2 space-y-4">
-                <Button onClick={handleNetworkAnalysis} disabled={isAnyLoading} size="sm" className="w-full h-8 text-sm">
-                  <Network className={isAnalyzingNetworks ? 'animate-spin' : ''} />
-                  Analisar Redes de Transferência para {assetA}
-                </Button>
-
-                {networkAnalysisResult && (
-                  <div className={`text-center p-3 rounded-md border ${networkAnalysisResult.isCompatible ? 'border-success/50 bg-success/10' : 'border-destructive/50 bg-destructive/10'}`}>
-                    <p className={`font-bold text-lg ${networkAnalysisResult.isCompatible ? 'text-success' : 'text-destructive'}`}>
-                      {networkAnalysisResult.isCompatible ? '✅ Compatível' : '❌ Incompatível'}
-                    </p>
-                    <p className="text-xs text-muted-foreground">{networkAnalysisResult.reasoning}</p>
-                    {networkAnalysisResult.isCompatible && (
-                       <p className="text-sm mt-1">
-                        Redes em comum: <span className="font-semibold">{networkAnalysisResult.commonNetworks.join(', ')}</span>
-                      </p>
-                    )}
-                  </div>
-                )}
-               </div>
-
-              <div className="border-t border-border/50 pt-4 mt-2 space-y-4">
-                {triResults ? (
-                  <>
-                    <div className="text-center">
-                        <p className="text-xs text-muted-foreground">Spread Líquido</p>
-                      <p className={`text-3xl font-bold ${diagnosisStyles[triResults.diagnosis].color}`}>
-                          {formatNumber(triResults.spread, 2, 2)}%
-                      </p>
-                    </div>
-                      <div className="flex justify-center items-baseline text-center gap-2">
-                        <p className="text-lg text-muted-foreground">${formatNumber(parseFloat(initialUSDT),2,2)}</p>
-                        <ArrowRight className="w-5 h-5 text-muted-foreground/50" />
-                        <p className={`text-lg font-bold ${diagnosisStyles[triResults.diagnosis].color}`}>
-                            ${formatNumber(triResults.USDT_final_liquido, 2, 2)}
-                        </p>
-                      </div>
-                    
-                    <div className="space-y-2 text-xs text-muted-foreground bg-background/50 p-3 rounded-md border border-border/20">
-                        <h4 className="font-bold text-foreground text-sm pb-1">Detalhes da Operação</h4>
-                        <div className="flex justify-between"><span>A (bruto):</span> <span>{formatNumber(triResults.A_bruto, 4)}</span></div>
-                        <div className="flex justify-between"><span>A (pós-taxa):</span> <span>{formatNumber(triResults.A_pos_compra, 4)}</span></div>
-                        <div className="flex justify-between"><span>B (recebido):</span> <span>{formatNumber(triResults.B_recebido, 4)}</span></div>
-                    </div>
-
-                     <div className="space-y-2 text-xs text-muted-foreground bg-background/50 p-3 rounded-md border border-border/20">
-                        <h4 className="font-bold text-foreground text-sm pb-1">Análise de Paridade</h4>
-                         <div className="flex justify-between"><span>Fator A→B (calculado):</span> <span>{formatNumber(triResults.calculatedFactor, 2, 8)}</span></div>
-                         <div className="flex justify-between"><span>Delta Relativo:</span> <span className={triResults.delta_relativo > 0 ? 'text-success' : 'text-destructive'}>{formatNumber(triResults.delta_relativo, 2, 2)}%</span></div>
-                         <div className="flex justify-between"><span>Preço B (break-even):</span> <span>${formatNumber(triResults.preco_B_break_even, 2, 8)}</span></div>
-                     </div>
-                  </>
-                ) : (
-                   <div className="text-center text-muted-foreground py-8">Aguardando dados...</div>
-                )}
-              </div>
+            <div className="grid gap-2">
+              <Label htmlFor="tri-price-b">Preço B/USDT</Label>
+              <Input id="tri-price-b" type="number" placeholder="0.4920" value={triPriceB} onChange={e => setTriPriceB(e.target.value)} disabled={isAnyLoading} />
             </div>
-          </TabsContent>
-        </Tabs>
+          </div>
+          <div className="grid grid-cols-3 gap-4">
+            <div className="grid gap-2">
+              <Label htmlFor="initial-usdt">USDT Inicial</Label>
+              <Input id="initial-usdt" type="number" value={initialUSDT} onChange={e => setInitialUSDT(e.target.value)} disabled={isAnyLoading} />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="trade-fee-a">Taxa Compra A (%)</Label>
+              <Input id="trade-fee-a" type="number" value={tradeFeeA} onChange={e => setTradeFeeA(e.target.value)} disabled={isAnyLoading} />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="trade-fee-b">Taxa Venda B (%)</Label>
+              <Input id="trade-fee-b" type="number" value={tradeFeeB} onChange={e => setTradeFeeB(e.target.value)} disabled={isAnyLoading} />
+            </div>
+          </div>
 
-        <div className="flex gap-2 pt-4 border-t border-border/50 mt-4">
+          <div className="space-y-4">
+            <Button onClick={handleNetworkAnalysis} disabled={isAnyLoading} size="sm" variant="secondary" className="w-full h-9">
+              <Network className={isAnalyzingNetworks ? 'animate-spin mr-2' : 'mr-2'} />
+              Analisar Redes de Transferência para {assetA}
+            </Button>
+
+            {networkAnalysisResult && (
+              <div className={`text-center p-3 rounded-md border ${networkAnalysisResult.isCompatible ? 'border-success/50 bg-success/10' : 'border-destructive/50 bg-destructive/10'}`}>
+                <p className={`font-bold text-lg ${networkAnalysisResult.isCompatible ? 'text-success' : 'text-destructive'}`}>
+                  {networkAnalysisResult.isCompatible ? '✅ Compatível' : '❌ Incompatível'}
+                </p>
+                <p className="text-xs text-muted-foreground">{networkAnalysisResult.reasoning}</p>
+                {networkAnalysisResult.isCompatible && (
+                    <p className="text-sm mt-1">
+                    Redes em comum: <span className="font-semibold">{networkAnalysisResult.commonNetworks.join(', ')}</span>
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="border-t-2 border-primary/20 pt-6 space-y-6">
+            {triResults ? (
+              <>
+                <div className="text-center">
+                    <p className="text-sm text-muted-foreground">Spread Líquido Estimado</p>
+                  <p className={`text-5xl font-bold tracking-tighter ${diagnosisStyles[triResults.diagnosis].color}`}>
+                      {formatNumber(triResults.spread, 2, 2)}%
+                  </p>
+                </div>
+                  <div className="flex justify-center items-baseline text-center gap-3">
+                    <p className="text-2xl text-muted-foreground">${formatNumber(parseFloat(initialUSDT),2,2)}</p>
+                    <ArrowRight className="w-6 h-6 text-primary/50" />
+                    <p className={`text-2xl font-bold ${diagnosisStyles[triResults.diagnosis].color}`}>
+                        ${formatNumber(triResults.USDT_final_liquido, 2, 2)}
+                    </p>
+                  </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2 text-xs text-muted-foreground bg-background/50 p-3 rounded-md border border-border/50">
+                      <h4 className="font-bold text-foreground text-sm pb-1">Detalhes da Operação</h4>
+                      <div className="flex justify-between"><span>A (bruto):</span> <span>{formatNumber(triResults.A_bruto, 4)}</span></div>
+                      <div className="flex justify-between"><span>A (pós-taxa):</span> <span>{formatNumber(triResults.A_pos_compra, 4)}</span></div>
+                      <div className="flex justify-between"><span>B (recebido):</span> <span>{formatNumber(triResults.B_recebido, 4)}</span></div>
+                  </div>
+
+                  <div className="space-y-2 text-xs text-muted-foreground bg-background/50 p-3 rounded-md border border-border/50">
+                      <h4 className="font-bold text-foreground text-sm pb-1">Análise de Paridade</h4>
+                        <div className="flex justify-between"><span>Fator A→B (calculado):</span> <span>{formatNumber(triResults.calculatedFactor, 2, 8)}</span></div>
+                        <div className="flex justify-between"><span>Delta Relativo:</span> <span className={triResults.delta_relativo > 0 ? 'text-success' : 'text-destructive'}>{formatNumber(triResults.delta_relativo, 2, 2)}%</span></div>
+                        <div className="flex justify-between"><span>Preço B (break-even):</span> <span>${formatNumber(triResults.preco_B_break_even, 2, 8)}</span></div>
+                  </div>
+                </div>
+              </>
+            ) : (
+                <div className="text-center text-muted-foreground py-12">Aguardando dados para calcular...</div>
+            )}
+          </div>
+        </div>
+
+        <div className="flex gap-2 pt-6 border-t border-border/50 mt-6">
           <Button onClick={handleExample} variant="outline" className="w-full" disabled={isAnyLoading}><TestTube /> Exemplo</Button>
           <Button onClick={handleClearFees} variant="outline" className="w-full" disabled={isAnyLoading}><Eraser/> Zerar Taxas</Button>
           <Button onClick={handleReset} variant="ghost" className="w-full" disabled={isAnyLoading}><RefreshCcw /> Reset</Button>
