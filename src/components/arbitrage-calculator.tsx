@@ -1,18 +1,20 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { RefreshCcw, TestTube2, ArrowRight, Eraser, AlertTriangle } from "lucide-react";
+import { RefreshCcw, TestTube2, ArrowRight, Eraser, AlertTriangle, Sparkles } from "lucide-react";
+import { liveParityComparison, LiveParityComparisonInput } from "@/ai/flows/live-parity-comparison";
 
 type DiagnosisStatus = 'positive' | 'negative' | 'neutral';
 type CalculatorMode = 'simple' | 'triangulation';
 
 export default function ArbitrageCalculator() {
   const [mode, setMode] = useState<CalculatorMode>('simple');
+  const [isPending, startTransition] = useTransition();
 
   // Simple Spread States
   const [priceA, setPriceA] = useState("");
@@ -27,6 +29,11 @@ export default function ArbitrageCalculator() {
   const [initialUSDT, setInitialUSDT] = useState("100");
   const [tradeFeeA, setTradeFeeA] = useState("0");
   const [tradeFeeB, setTradeFeeB] = useState("0");
+
+  // AI State
+  const [assetA, setAssetA] = useState("JASMY");
+  const [assetB, setAssetB] = useState("PEPE");
+
 
   const formatNumber = (num: number, minDigits = 2, maxDigits = 4) => {
     if (isNaN(num)) return '0';
@@ -141,6 +148,21 @@ export default function ArbitrageCalculator() {
       setTradeFeeB("0");
   };
 
+  const handleAiAnalysis = () => {
+    startTransition(async () => {
+        const input: LiveParityComparisonInput = { assetA, assetB };
+        try {
+            const result = await liveParityComparison(input);
+            setTriPriceA(result.priceA.toString());
+            setTriPriceB(result.priceB.toString());
+            setFactorAB(result.factorAB.toString());
+        } catch (error) {
+            console.error("AI analysis failed:", error);
+            // Poderíamos mostrar um toast de erro aqui
+        }
+    });
+  };
+
   useEffect(() => {
     handleReset();
   }, [mode]);
@@ -219,7 +241,19 @@ export default function ArbitrageCalculator() {
             </TabsContent>
 
             <TabsContent value="triangulation">
-              <div className="grid grid-cols-1 gap-4 mt-4">
+               <div className="grid grid-cols-1 gap-4 mt-4">
+                <div className="bg-background/30 p-3 rounded-md border border-border/20 space-y-2">
+                     <Label className="text-xs text-muted-foreground">Análise com IA</Label>
+                     <div className="flex items-center gap-2">
+                        <Input id="asset-a" placeholder="Ativo A" value={assetA} onChange={e => setAssetA(e.target.value.toUpperCase())} className="text-center"/>
+                        <ArrowRight className="w-4 h-4 text-muted-foreground/50 shrink-0"/>
+                        <Input id="asset-b" placeholder="Ativo B" value={assetB} onChange={e => setAssetB(e.target.value.toUpperCase())} className="text-center"/>
+                        <Button onClick={handleAiAnalysis} disabled={isPending} size="icon" variant="outline">
+                            <Sparkles className={`transition-all ${isPending ? 'animate-spin' : ''}`}/>
+                        </Button>
+                     </div>
+                </div>
+
                 <div className="grid grid-cols-3 gap-4">
                   <div className="grid gap-2">
                     <Label htmlFor="tri-price-a">Preço A/USDT</Label>
