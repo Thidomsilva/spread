@@ -469,9 +469,9 @@ export default function ArbitrageCalculator() {
         
         
         {/* Etapas de Troca */}
-        <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] items-center gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] items-start gap-4 mb-6">
             {/* Etapa 1: Compra do Ativo A */}
-            <div className="p-4 rounded-lg border border-border/50 bg-background/30 space-y-4">
+            <div className="p-4 rounded-lg border border-border/50 bg-background/30 space-y-4 h-full">
                 <Label className="text-xs text-muted-foreground">Etapa 1: Comprar</Label>
                  <div className="grid gap-2">
                     <Label className="text-xs" htmlFor="asset-a">Ativo A</Label>
@@ -503,12 +503,12 @@ export default function ArbitrageCalculator() {
                 )}
             </div>
 
-            <div className="flex justify-center items-center my-4 md:my-0">
+            <div className="flex justify-center items-center h-full my-4 md:my-0">
                 <ChevronsRight className="w-8 h-8 text-primary/50 shrink-0 mx-2 transform md:rotate-0"/>
             </div>
             
             {/* Etapa 2: Venda do Ativo B */}
-            <div className="p-4 rounded-lg border border-border/50 bg-background/30 space-y-4">
+            <div className="p-4 rounded-lg border border-border/50 bg-background/30 space-y-4 h-full">
                 <Label className="text-xs text-muted-foreground">Etapa 2: Vender</Label>
                 <div className="grid gap-2">
                     <Label className="text-xs" htmlFor="asset-b">Ativo B</Label>
@@ -622,5 +622,3 @@ export default function ArbitrageCalculator() {
     </Card>
   );
 }
-
-    
