@@ -186,7 +186,6 @@ export default function SpreadCalculator() {
       <div className="container mx-auto p-4 md:p-8">
         <header className="text-center mb-8">
           <h1 className="text-4xl font-bold tracking-tight font-headline">Calculadora de Spread – Triangulação</h1>
-          <p className="text-muted-foreground mt-2 max-w-2xl mx-auto">Calcule a viabilidade da rota USDT → XPR → VAULTA → USDT, considerando taxas e o swap de rede.</p>
         </header>
 
         <div className="grid md:grid-cols-5 gap-8">
@@ -194,7 +193,6 @@ export default function SpreadCalculator() {
             <Card>
               <CardHeader>
                 <CardTitle>Entradas</CardTitle>
-                <CardDescription>Insira os valores para calcular o spread.</CardDescription>
               </CardHeader>
               <CardContent className="grid gap-4">
                 <div className="grid gap-2">
@@ -244,9 +242,6 @@ export default function SpreadCalculator() {
             <Card className="bg-card">
               <CardHeader>
                 <ViabilityStatusDisplay />
-                <CardDescription>
-                  {calculations && calculations.pInitialUsdt && calculations.usdtFinalLiquido ? `${formatNumber(calculations.pInitialUsdt)} USDT → ${formatNumber(calculations.usdtFinalLiquido)} USDT` : "Resultado da operação"}
-                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 {calculations.error && (
@@ -269,7 +264,6 @@ export default function SpreadCalculator() {
             <Card>
               <CardHeader>
                 <CardTitle>Comparação de Paridade</CardTitle>
-                <CardDescription>Análise da paridade XPR vs VAULTA na rede.</CardDescription>
               </CardHeader>
               <CardContent>
                 {isParityLoading && <div className="flex items-center gap-2 text-muted-foreground"><Loader2 className="animate-spin w-4 h-4"/>Calculando...</div>}
