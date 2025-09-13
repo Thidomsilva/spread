@@ -15,7 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 type DiagnosisStatus = 'positive' | 'negative' | 'neutral';
 type CalculatorMode = 'simple' | 'triangulation';
 
-const EXCHANGES = ["Binance", "MEXC", "Bitmart", "Gate.io"];
+const EXCHANGES = ["MEXC", "Bitmart", "Gate.io"];
 
 export default function ArbitrageCalculator() {
   const [mode, setMode] = useState<CalculatorMode>('simple');

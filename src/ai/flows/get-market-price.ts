@@ -11,7 +11,7 @@ import { getBinancePrice } from '@/services/binance-service';
 import { z } from 'zod';
 
 const GetMarketPriceInputSchema = z.object({
-  exchange: z.enum(['Binance', 'MEXC', 'Bitmart', 'Gate.io']),
+  exchange: z.enum(['MEXC', 'Bitmart', 'Gate.io']),
   asset: z.string().describe('O símbolo do ativo (ex: JASMY)'),
   counterpart: z.string().optional().default('USDT').describe('A contraparte (ex: USDT)'),
 });
@@ -40,12 +40,12 @@ const getMarketPriceFlow = ai.defineFlow(
     const counterpart = input.counterpart ?? 'USDT';
 
     switch (input.exchange) {
-      case 'Binance':
-        const pair = `${input.asset.toUpperCase()}${counterpart.toUpperCase()}`;
-        const response = await getBinancePrice(pair);
-        price = parseFloat(response.price);
-        break;
-      // Casos para outras exchanges serão adicionados aqui no futuro.
+      // O caso da Binance foi removido temporariamente devido a bloqueios de região (erro 451)
+      // case 'Binance':
+      //   const pair = `${input.asset.toUpperCase()}${counterpart.toUpperCase()}`;
+      //   const response = await getBinancePrice(pair);
+      //   price = parseFloat(response.price);
+      //   break;
       case 'MEXC':
       case 'Bitmart':
       case 'Gate.io':
