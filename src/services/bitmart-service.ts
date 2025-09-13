@@ -27,6 +27,11 @@ export async function getBitmartPrice(
 ): Promise<BitmartTickerResponse> {
   try {
     const response = await fetch(`${BITMART_API_URL}/ticker?symbol=${pair}`);
+    
+    if (response.status === 429) {
+      throw new Error("Erro da API da Bitmart: Muitas requisições. Por favor, aguarde um momento antes de tentar novamente.");
+    }
+    
     const data: BitmartApiResponse = await response.json();
 
     if (!response.ok || data.code !== 1000) {
