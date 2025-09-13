@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect, useTransition, useCallback } from "react";
+import { useState, useMemo, useCallback, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -22,7 +22,6 @@ export default function ArbitrageCalculator() {
   const [isAnalyzingNetworks, startNetworkAnalysisTransition] = useTransition();
   const { toast } = useToast();
 
-  // Triangulation States
   const [triPriceA, setTriPriceA] = useState("");
   const [triPriceB, setTriPriceB] = useState("");
   const [initialUSDT, setInitialUSDT] = useState("100");
@@ -31,8 +30,6 @@ export default function ArbitrageCalculator() {
   const [exchangeA, setExchangeA] = useState(EXCHANGES[0]);
   const [exchangeB, setExchangeB] = useState(EXCHANGES[1]);
 
-
-  // AI State
   const [assetA, setAssetA] = useState("JASMY");
   const [assetB, setAssetB] = useState("PEPE");
   const [networkAnalysisResult, setNetworkAnalysisResult] = useState<NetworkAnalysisOutput | null>(null);
@@ -56,12 +53,11 @@ export default function ArbitrageCalculator() {
       return null;
     }
     
-    // Fator de conversão calculado dinamicamente
     const factor = pA / pB;
 
     const A_bruto = usdtInitial / pA;
     const A_pos_compra = A_bruto * (1 - feeA);
-    const B_recebido = A_pos_compra / factor; // A -> B via conversão implicita USDT
+    const B_recebido = A_pos_compra / factor;
     const USDT_final_bruto = B_recebido * pB;
     const USDT_final_liquido = USDT_final_bruto * (1 - feeB);
     const spread = usdtInitial > 0 ? ((USDT_final_liquido / usdtInitial) - 1) * 100 : 0;
@@ -74,7 +70,6 @@ export default function ArbitrageCalculator() {
     const A_equivalente = pB * (1/factor);
     const delta_relativo = pA > 0 ? ((A_equivalente / pA) - 1) * 100 : 0;
     const preco_B_break_even = factor > 0 ? pA * factor : 0;
-
 
     return {
       A_bruto,
@@ -232,7 +227,7 @@ export default function ArbitrageCalculator() {
       <CardContent className="p-6 pt-2">
         <div className="grid grid-cols-1 gap-6">
           <div className="bg-background/50 p-4 rounded-lg border border-border/50 space-y-4">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
                 <Label className="text-sm font-medium text-primary">Ferramentas de Análise</Label>
                 <div className="flex gap-2">
                   <Button onClick={handleAiAnalysis} disabled={isAnyLoading} size="sm" variant="outline" className="h-8">
@@ -252,7 +247,7 @@ export default function ArbitrageCalculator() {
               </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="grid gap-2">
                   <Label>Comprar A em</Label>
                   <Select value={exchangeA} onValueChange={setExchangeA} disabled={isAnyLoading}>
@@ -277,7 +272,7 @@ export default function ArbitrageCalculator() {
               </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="grid gap-2">
               <Label htmlFor="tri-price-a">Preço A/USDT</Label>
               <Input id="tri-price-a" type="number" placeholder="0.0067" value={triPriceA} onChange={e => setTriPriceA(e.target.value)} disabled={isAnyLoading} />
@@ -287,7 +282,7 @@ export default function ArbitrageCalculator() {
               <Input id="tri-price-b" type="number" placeholder="0.4920" value={triPriceB} onChange={e => setTriPriceB(e.target.value)} disabled={isAnyLoading} />
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="grid gap-2">
               <Label htmlFor="initial-usdt">USDT Inicial</Label>
               <Input id="initial-usdt" type="number" value={initialUSDT} onChange={e => setInitialUSDT(e.target.value)} disabled={isAnyLoading} />
@@ -362,7 +357,7 @@ export default function ArbitrageCalculator() {
           </div>
         </div>
 
-        <div className="flex gap-2 pt-6 border-t border-border/50 mt-6">
+        <div className="flex flex-col sm:flex-row gap-2 pt-6 border-t border-border/50 mt-6">
           <Button onClick={handleExample} variant="outline" className="w-full" disabled={isAnyLoading}><TestTube /> Exemplo</Button>
           <Button onClick={handleClearFees} variant="outline" className="w-full" disabled={isAnyLoading}><Eraser/> Zerar Taxas</Button>
           <Button onClick={handleReset} variant="ghost" className="w-full" disabled={isAnyLoading}><RefreshCcw /> Reset</Button>
