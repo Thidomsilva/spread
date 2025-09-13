@@ -7,7 +7,7 @@
  */
 
 import { ai } from '@/ai/genkit';
-import { getBinancePrice } from '@/services/binance-service';
+import { getMexcPrice } from '@/services/mexc-service';
 import { z } from 'zod';
 
 const GetMarketPriceInputSchema = z.object({
@@ -38,15 +38,13 @@ const getMarketPriceFlow = ai.defineFlow(
 
     let price = 0;
     const counterpart = input.counterpart ?? 'USDT';
+    const pair = `${input.asset.toUpperCase()}${counterpart.toUpperCase()}`;
 
     switch (input.exchange) {
-      // O caso da Binance foi removido temporariamente devido a bloqueios de região (erro 451)
-      // case 'Binance':
-      //   const pair = `${input.asset.toUpperCase()}${counterpart.toUpperCase()}`;
-      //   const response = await getBinancePrice(pair);
-      //   price = parseFloat(response.price);
-      //   break;
       case 'MEXC':
+        const mexcResponse = await getMexcPrice(pair);
+        price = parseFloat(mexcResponse.price);
+        break;
       case 'Bitmart':
       case 'Gate.io':
         throw new Error(`A exchange ${input.exchange} ainda não foi implementada.`);
