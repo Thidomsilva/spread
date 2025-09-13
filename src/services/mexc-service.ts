@@ -7,6 +7,9 @@ export type MexcPriceResponse = {
   price: string;
 };
 
+// A MEXC pode retornar um objeto de erro ou um array de respostas válidas.
+type MexcApiResponse = MexcPriceResponse | MexcErrorResponse;
+
 type MexcErrorResponse = {
   code: number;
   msg: string;
@@ -23,16 +26,28 @@ export async function getMexcPrice(
   try {
     const response = await fetch(`${MEXC_API_URL}/ticker/price?symbol=${pair}`);
 
-    const data = await response.json();
+    // A API da MEXC pode retornar um array se o símbolo for válido, ou um objeto de erro se for inválido.
+    const data: MexcApiResponse | MexcPriceResponse[] = await response.json();
+
+    // Checa se a resposta é um objeto de erro
+    if (typeof data === 'object' && 'code' in data && (data as MexcErrorResponse).code !== 200) {
+      const errorData = data as MexcErrorResponse;
+       throw new Error(`Erro da API da MEXC: ${errorData.msg}`);
+    }
 
     if (!response.ok) {
-        const errorData = data as MexcErrorResponse;
-        throw new Error(
-          `Erro da API da MEXC: ${errorData.msg || `Status ${response.status}`}`
-        );
+        throw new Error(`Erro da API da MEXC: Status ${response.status}`);
     }
     
-    return data as MexcPriceResponse;
+    // Se a resposta for um array, pegamos o primeiro item (geralmente só haverá um para um único símbolo)
+    const priceData = Array.isArray(data) ? data[0] : data;
+
+    if (!priceData || !('price' in priceData)) {
+      throw new Error(`Resposta inesperada da API da MEXC para o par ${pair}.`);
+    }
+
+    return priceData as MexcPriceResponse;
+    
   } catch (error) {
     console.error(`Falha ao buscar o preço da MEXC para ${pair}:`, error);
     if (error instanceof Error) {
