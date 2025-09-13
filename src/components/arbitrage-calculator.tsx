@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { RefreshCcw, TestTube, ArrowRight, Eraser, Sparkles, Search, Network, ChevronsUpDown, Check } from "lucide-react";
+import { RefreshCcw, TestTube, ArrowRight, Eraser, Sparkles, Search, Network, ChevronsUpDown, Check, Trash } from "lucide-react";
 import { liveParityComparison, LiveParityComparisonInput } from "@/ai/flows/live-parity-comparison";
 import { getMarketPrice, GetMarketPriceInput } from "@/ai/flows/get-market-price";
 import { networkAnalysis, NetworkAnalysisInput, NetworkAnalysisOutput } from "@/ai/flows/network-analysis";
@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
+import { Switch } from "@/components/ui/switch";
 
 
 type DiagnosisStatus = 'positive' | 'negative' | 'neutral';
@@ -115,6 +116,7 @@ export default function ArbitrageCalculator() {
 
   const [assetsA, setAssetsA] = useState<string[]>([]);
   const [assetsB, setAssetsB] = useState<string[]>([]);
+  const [autoRefresh, setAutoRefresh] = useState(false);
 
 
   const fetchAssets = useCallback(async (exchange: string, assetSetter: React.Dispatch<React.SetStateAction<string[]>>, startTransitionFunc: React.TransitionStartFunction) => {
@@ -206,6 +208,7 @@ export default function ArbitrageCalculator() {
     setInitialUSDT("250");
     setTradeFeeA("0");
     setTradeFeeB("0");
+    setNetworkAnalysisResult(null);
   };
   
   const handleReset = () => {
@@ -217,11 +220,13 @@ export default function ArbitrageCalculator() {
     setTradeFeeA("0");
     setTradeFeeB("0");
     setNetworkAnalysisResult(null);
+    setAutoRefresh(false);
   };
 
-  const handleClearFees = () => {
-    setTradeFeeA("0");
-    setTradeFeeB("0");
+  const handleClear = () => {
+    setTriPriceA("");
+    setTriPriceB("");
+    setNetworkAnalysisResult(null);
   };
 
   const handleNetworkAnalysis = useCallback(() => {
@@ -306,6 +311,9 @@ export default function ArbitrageCalculator() {
 
 
   const handleFetchRealPrices = useCallback(() => {
+    // Não executa se outra busca já estiver em andamento
+    if (isFetchingRealPrice) return;
+    
     startRealPriceTransition(async () => {
       setNetworkAnalysisResult(null);
       try {
@@ -315,7 +323,6 @@ export default function ArbitrageCalculator() {
         };
         const priceA = await getMarketPrice(inputA);
         setTriPriceA(priceA.toString());
-        // Se a busca for bem-sucedida, tentamos adicionar o ativo ao DB
         await addNewAssetToDB(exchangeA, assetA, assetsA, setAssetsA);
         
         const inputB: GetMarketPriceInput = { 
@@ -324,18 +331,14 @@ export default function ArbitrageCalculator() {
         };
         const priceB = await getMarketPrice(inputB);
         setTriPriceB(priceB.toString());
-        // Se a busca for bem-sucedida, tentamos adicionar o ativo ao DB
         await addNewAssetToDB(exchangeB, assetB, assetsB, setAssetsB);
 
-        toast({
-            title: "Preços Reais Obtidos",
-            description: `Preços de ${assetA} e ${assetB} atualizados.`,
-        });
-
-        handleNetworkAnalysis(); // Executa a análise de rede
+        handleNetworkAnalysis();
 
       } catch (error) {
         console.error("Real price fetching failed:", error);
+        // Desliga o auto-refresh em caso de erro para não ficar tentando em loop
+        setAutoRefresh(false);
         toast({
           variant: "destructive",
           title: "Falha ao Buscar Preços",
@@ -343,7 +346,33 @@ export default function ArbitrageCalculator() {
         })
       }
     });
-  }, [assetA, assetB, exchangeA, exchangeB, toast, assetsA, assetsB, handleNetworkAnalysis]);
+  }, [assetA, assetB, exchangeA, exchangeB, toast, assetsA, assetsB, handleNetworkAnalysis, isFetchingRealPrice]);
+
+  useEffect(() => {
+    if (!autoRefresh || isFetchingRealPrice) {
+      return;
+    }
+
+    const intervalId = setInterval(() => {
+      handleFetchRealPrices();
+    }, 15000); // 15 segundos
+
+    // Toast para informar que o modo ao vivo está ativo
+    toast({
+        title: "Modo Ao Vivo Ativado",
+        description: "Os preços serão atualizados a cada 15 segundos.",
+    });
+
+    return () => {
+      clearInterval(intervalId);
+      // Toast para informar que o modo ao vivo foi desativado
+      if (autoRefresh) { // Apenas mostra se estava ativo
+          toast({
+              title: "Modo Ao Vivo Desativado",
+          });
+      }
+    };
+  }, [autoRefresh, handleFetchRealPrices, isFetchingRealPrice, toast]);
   
   const diagnosisStyles = {
     positive: { text: "✅ Arbitragem Positiva", color: "text-success" },
@@ -351,7 +380,8 @@ export default function ArbitrageCalculator() {
     neutral: { text: "⚠️ Neutro", color: "text-muted-foreground" },
   };
   
-  const isAnyLoading = isPending || isFetchingRealPrice || isAnalyzingNetworks || isFetchingAssetsA || isFetchingAssetsB;
+  const isAnyLoading = isPending || isAnalyzingNetworks || isFetchingAssetsA || isFetchingAssetsB;
+  const isPriceLoading = isFetchingRealPrice;
 
   return (
     <Card className="w-full max-w-lg bg-card/50 backdrop-blur-sm border-primary/20 shadow-primary/10 shadow-2xl">
@@ -364,17 +394,23 @@ export default function ArbitrageCalculator() {
           <div className="bg-background/50 p-4 rounded-lg border border-border/50 space-y-4">
               <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
                 <Label className="text-sm font-medium text-primary">Ferramentas de Análise</Label>
-                <div className="flex gap-2">
-                  <Button onClick={handleAiAnalysis} disabled={isAnyLoading} size="sm" variant="outline" className="h-8">
+                <div className="flex items-center gap-2">
+                  <Button onClick={handleAiAnalysis} disabled={isAnyLoading || isPriceLoading} size="sm" variant="outline" className="h-8">
                       <Sparkles className={isPending ? 'animate-spin' : ''}/>
                       Preços (IA)
                   </Button>
-                  <Button onClick={handleFetchRealPrices} disabled={isAnyLoading} size="sm" variant="default" className="h-8">
-                      <Search className={isFetchingRealPrice ? 'animate-spin' : ''}/>
+                  <Button onClick={handleFetchRealPrices} disabled={isAnyLoading || isPriceLoading || autoRefresh} size="sm" variant="default" className="h-8">
+                      <Search className={isPriceLoading ? 'animate-spin' : ''}/>
                       Preços (Real)
                   </Button>
                 </div>
               </div>
+
+               <div className="flex items-center space-x-2">
+                  <Switch id="auto-refresh" checked={autoRefresh} onCheckedChange={setAutoRefresh} disabled={isAnyLoading} />
+                  <Label htmlFor="auto-refresh" className="text-sm font-medium">Atualização Automática (15s)</Label>
+                </div>
+
               <div className="flex items-center gap-3">
                   <div className="grid gap-2 w-full">
                      <AssetCombobox
@@ -382,7 +418,7 @@ export default function ArbitrageCalculator() {
                         onChange={setAssetA}
                         assets={assetsA}
                         isLoading={isFetchingAssetsA}
-                        disabled={isAnyLoading}
+                        disabled={isAnyLoading || autoRefresh}
                       />
                   </div>
                 <ArrowRight className="w-5 h-5 text-primary/50 shrink-0"/>
@@ -392,7 +428,7 @@ export default function ArbitrageCalculator() {
                         onChange={setAssetB}
                         assets={assetsB}
                         isLoading={isFetchingAssetsB}
-                        disabled={isAnyLoading}
+                        disabled={isAnyLoading || autoRefresh}
                       />
                   </div>
               </div>
@@ -401,7 +437,7 @@ export default function ArbitrageCalculator() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="grid gap-2">
                   <Label>Comprar A em</Label>
-                  <Select value={exchangeA} onValueChange={setExchangeA} disabled={isAnyLoading}>
+                  <Select value={exchangeA} onValueChange={setExchangeA} disabled={isAnyLoading || autoRefresh}>
                       <SelectTrigger>
                           <SelectValue placeholder="Selecione a Exchange" />
                       </SelectTrigger>
@@ -412,7 +448,7 @@ export default function ArbitrageCalculator() {
               </div>
               <div className="grid gap-2">
                   <Label>Vender A (ou B) em</Label>
-                  <Select value={exchangeB} onValueChange={setExchangeB} disabled={isAnyLoading}>
+                  <Select value={exchangeB} onValueChange={setExchangeB} disabled={isAnyLoading || autoRefresh}>
                       <SelectTrigger>
                           <SelectValue placeholder="Selecione a Exchange" />
                       </SelectTrigger>
@@ -426,25 +462,25 @@ export default function ArbitrageCalculator() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="grid gap-2">
               <Label htmlFor="tri-price-a">Preço A/USDT</Label>
-              <Input id="tri-price-a" type="number" placeholder="0.0067" value={triPriceA} onChange={e => setTriPriceA(e.target.value)} disabled={isAnyLoading} />
+              <Input id="tri-price-a" type="number" placeholder="0.00" value={triPriceA} onChange={e => setTriPriceA(e.target.value)} disabled={isAnyLoading || autoRefresh} />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="tri-price-b">Preço B/USDT</Label>
-              <Input id="tri-price-b" type="number" placeholder="0.4920" value={triPriceB} onChange={e => setTriPriceB(e.target.value)} disabled={isAnyLoading} />
+              <Input id="tri-price-b" type="number" placeholder="0.00" value={triPriceB} onChange={e => setTriPriceB(e.target.value)} disabled={isAnyLoading || autoRefresh} />
             </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="grid gap-2">
               <Label htmlFor="initial-usdt">USDT Inicial</Label>
-              <Input id="initial-usdt" type="number" value={initialUSDT} onChange={e => setInitialUSDT(e.target.value)} disabled={isAnyLoading} />
+              <Input id="initial-usdt" type="number" value={initialUSDT} onChange={e => setInitialUSDT(e.target.value)} disabled={isAnyLoading || autoRefresh} />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="trade-fee-a">Taxa Compra A (%)</Label>
-              <Input id="trade-fee-a" type="number" value={tradeFeeA} onChange={e => setTradeFeeA(e.target.value)} disabled={isAnyLoading} />
+              <Input id="trade-fee-a" type="number" value={tradeFeeA} onChange={e => setTradeFeeA(e.target.value)} disabled={isAnyLoading || autoRefresh} />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="trade-fee-b">Taxa Venda B (%)</Label>
-              <Input id="trade-fee-b" type="number" value={tradeFeeB} onChange={e => setTradeFeeB(e.target.value)} disabled={isAnyLoading} />
+              <Input id="trade-fee-b" type="number" value={tradeFeeB} onChange={e => setTradeFeeB(e.target.value)} disabled={isAnyLoading || autoRefresh} />
             </div>
           </div>
 
@@ -486,15 +522,15 @@ export default function ArbitrageCalculator() {
                   </p>
                 </div>
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2 text-xs text-muted-foreground bg-background/50 p-3 rounded-md border border-border/50">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs text-muted-foreground">
+                  <div className="space-y-2 bg-background/50 p-3 rounded-md border border-border/50">
                       <h4 className="font-bold text-foreground text-sm pb-1">Detalhes da Operação</h4>
                       <div className="flex justify-between"><span>A (bruto):</span> <span className="break-all">{formatNumber(triResults.A_bruto, 4)}</span></div>
                       <div className="flex justify-between"><span>A (pós-taxa):</span> <span className="break-all">{formatNumber(triResults.A_pos_compra, 4)}</span></div>
                       <div className="flex justify-between"><span>B (recebido):</span> <span className="break-all">{formatNumber(triResults.B_recebido, 4)}</span></div>
                   </div>
 
-                  <div className="space-y-2 text-xs text-muted-foreground bg-background/50 p-3 rounded-md border border-border/50">
+                  <div className="space-y-2 bg-background/50 p-3 rounded-md border border-border/50">
                       <h4 className="font-bold text-foreground text-sm pb-1">Análise de Paridade</h4>
                         <div className="flex justify-between"><span>Fator A→B:</span> <span className="break-all">{formatNumber(triResults.calculatedFactor, 2, 8)}</span></div>
                         <div className="flex justify-between"><span>Delta Relativo:</span> <span className={triResults.delta_relativo > 0 ? 'text-success' : 'text-destructive'}>{formatNumber(triResults.delta_relativo, 2, 2)}%</span></div>
@@ -509,8 +545,8 @@ export default function ArbitrageCalculator() {
         </div>
 
         <div className="flex flex-col sm:flex-row gap-2 pt-6 border-t border-border/50 mt-6">
-          <Button onClick={handleExample} variant="outline" className="w-full" disabled={isAnyLoading}><TestTube /> Exemplo</Button>
-          <Button onClick={handleClearFees} variant="outline" className="w-full" disabled={isAnyLoading}><Eraser/> Zerar Taxas</Button>
+          <Button onClick={handleExample} variant="outline" className="w-full" disabled={isAnyLoading || autoRefresh}><TestTube /> Exemplo</Button>
+          <Button onClick={handleClear} variant="outline" className="w-full" disabled={isAnyLoading || autoRefresh}><Trash/> Limpar Preços</Button>
           <Button onClick={handleReset} variant="ghost" className="w-full" disabled={isAnyLoading}><RefreshCcw /> Reset</Button>
         </div>
       </CardContent>
