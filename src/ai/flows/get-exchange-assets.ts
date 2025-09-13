@@ -54,12 +54,12 @@ const getExchangeAssetsFlow = ai.defineFlow(
             return { assets: dbAssets.assets.sort() };
         }
     } catch (error) {
-        console.error(`Erro ao buscar ativos do Firestore para ${input.exchange}:`, error);
-        // Continua para o fallback se houver erro no DB
+        console.error(`Erro ao buscar ativos do Firestore para ${input.exchange}. Usando fallback.`, error);
+        // Não faz nada, apenas loga. O código abaixo cuidará do fallback.
     }
 
-    // 2. Fallback: Usa a lista simulada se o DB estiver vazio
-    console.log(`Nenhum ativo encontrado no Firestore para ${input.exchange}. Usando lista simulada e populando o DB.`);
+    // 2. Fallback: Usa a lista simulada se o DB estiver vazio ou se a busca falhou
+    console.log(`Nenhum ativo encontrado no Firestore para ${input.exchange} ou falha na conexão. Usando lista simulada e populando o DB.`);
     const simulatedAssetDb: Record<string, string[]> = {
         MEXC: ['JASMY', 'PEPE', 'BTC', 'ETH', 'SOL', 'DOGE', 'SHIB', 'MATIC', 'AVAX', 'LINK'],
         Bitmart: ['JASMY', 'PEPE', 'BTC', 'ETH', 'SOL', 'DOGE', 'SHIB', 'TRX', 'LTC', 'XRP'],
