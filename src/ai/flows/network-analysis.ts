@@ -130,9 +130,10 @@ const networkAnalysisFlow = ai.defineFlow(
         return output;
       } catch (error: any) {
         attempt++;
-        if (error.message.includes('503') && attempt < maxRetries) {
-          console.log(`Tentativa ${attempt} falhou com erro 503. Tentando novamente em ${attempt * 2}s...`);
-          await new Promise(resolve => setTimeout(resolve, attempt * 2000));
+        if (error.message && error.message.includes('503') && attempt < maxRetries) {
+          const delay = Math.pow(2, attempt) * 1000;
+          console.log(`Tentativa ${attempt} falhou com erro 503. Tentando novamente em ${delay / 1000}s...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
         } else {
           throw error;
         }
