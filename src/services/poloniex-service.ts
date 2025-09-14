@@ -47,8 +47,8 @@ export async function getPoloniexPrice(
   } catch (error) {
     console.error(`Falha ao buscar o preço da Poloniex para ${pair}:`, error);
      if (error instanceof Error) {
-        if (error.message.includes('fetch failed')) {
-            throw new Error(`Não foi possível conectar à API da Poloniex para o par ${pair}. Verifique a conexão do servidor ou se a API da exchange está online.`);
+        if (error.message.toLowerCase().includes('fetch failed')) {
+            throw new Error(`Não foi possível conectar à API da Polonie-x para o par ${pair}. Verifique a conexão do servidor ou se a API da exchange está online.`);
         }
         throw error;
     }
