@@ -33,7 +33,10 @@ const nextConfig: NextConfig = {
   experimental: {
     serverActions: {
       bodySizeLimit: '2mb',
-      serverActionsTimeout: 120,
+      allowedHosts: [
+        'localhost:9002',
+        'stunning-goggles-pj6w5rq7jvv4h6g4-9002.app.github.dev',
+      ],
     },
   },
 };

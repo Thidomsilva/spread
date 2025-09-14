@@ -6,6 +6,10 @@
  */
 
 import { ai } from '@/ai/genkit';
+import { getMexcAssetNetworks } from '@/services/mexc-networks';
+import { getBitmartAssetNetworks } from '@/services/bitmart-networks';
+import { getGateioAssetNetworks } from '@/services/gateio-networks';
+import { getPoloniexAssetNetworks } from '@/services/poloniex-networks';
 import { z } from 'zod';
 
 // Definição da ferramenta que a IA usará para obter informações de rede.
@@ -23,36 +27,37 @@ const getExchangeAssetNetworks = ai.defineTool(
     }),
   },
   async ({ exchange, asset }) => {
-    // !! NOTA DE SIMULAÇÃO !!
-    // Em um aplicativo real, esta função faria uma chamada de API para a exchange
-    // para obter as redes reais. Como isso é complexo, estamos simulando a resposta.
-    console.log(`SIMULAÇÃO: Buscando redes para ${asset} na ${exchange}`);
-    
-    // Simulação de dados de rede
+    if (exchange === 'MEXC') {
+      return await getMexcAssetNetworks(asset);
+    }
+    if (exchange === 'Bitmart') {
+      return await getBitmartAssetNetworks(asset);
+    }
+    if (exchange === 'Gate.io') {
+      return await getGateioAssetNetworks(asset);
+    }
+    if (exchange === 'Poloniex') {
+      return await getPoloniexAssetNetworks(asset);
+    }
+    const assetUpperCase = asset.toUpperCase();
     const networksDb: Record<string, Record<string, string[]>> = {
       JASMY: {
-        MEXC: ['ERC20', 'BEP20'],
         Bitmart: ['ERC20'],
         'Gate.io': ['ERC20', 'Polygon'],
         Poloniex: ['ERC20'],
       },
       PEPE: {
-        MEXC: ['ERC20', 'Arbitrum'],
         Bitmart: ['ERC20'],
         'Gate.io': ['ERC20', 'Arbitrum', 'Solana'],
         Poloniex: ['ERC20'],
       },
       BTC: {
-        MEXC: ['Bitcoin', 'Lightning', 'BEP20'],
         Bitmart: ['Bitcoin', 'BEP20', 'ERC20'],
          'Gate.io': ['Bitcoin', 'Lightning', 'BEP20'],
          Poloniex: ['Bitcoin', 'TRC20'],
       },
     };
-
-    const assetUpperCase = asset.toUpperCase();
-    const supportedNetworks = networksDb[assetUpperCase]?.[exchange] || []; // Padrão para lista vazia se não encontrado
-
+    const supportedNetworks = networksDb[assetUpperCase]?.[exchange] || [];
     return {
       depositNetworks: supportedNetworks,
       withdrawalNetworks: supportedNetworks,
@@ -123,10 +128,21 @@ const networkAnalysisFlow = ai.defineFlow(
 
     while (attempt < maxRetries) {
       try {
-        const { output } = await networkAnalysisPrompt(input);
-        if (!output) {
-          throw new Error('A análise de rede da IA não retornou um resultado válido.');
-        }
+        // Busca redes de origem
+        const source = await getExchangeAssetNetworks({ exchange: input.sourceExchange, asset: input.asset });
+        // Busca redes de destino
+        const dest = await getExchangeAssetNetworks({ exchange: input.destinationExchange, asset: input.asset });
+        console.log(`[DEBUG] Redes de saque (${input.sourceExchange}):`, source.withdrawalNetworks);
+        console.log(`[DEBUG] Redes de depósito (${input.destinationExchange}):`, dest.depositNetworks);
+        // Interseção
+        const common = source.withdrawalNetworks.filter(net => dest.depositNetworks.includes(net));
+        console.log(`[DEBUG] Redes em comum:`, common);
+        // Monta resposta manualmente para depuração
+        const output = {
+          isCompatible: common.length > 0,
+          commonNetworks: common,
+          reasoning: common.length > 0 ? `Compatível via redes: ${common.join(', ')}` : 'Incompatível, pois não há redes em comum.',
+        };
         return output;
       } catch (error: any) {
         attempt++;

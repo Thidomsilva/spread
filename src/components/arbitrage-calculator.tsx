@@ -6,12 +6,27 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RefreshCcw, TestTube, ArrowRight, Sparkles, Search, Trash, ChevronsRight, HelpCircle } from "lucide-react";
-import { getMarketPrice } from "@/ai/flows/get-market-price";
-import { networkAnalysis } from "@/ai/flows/network-analysis";
-import { getExchangeAssets } from "@/ai/flows/get-exchange-assets";
-import { addAssetToDB } from "@/ai/flows/manage-assets-db";
-import { investmentAnalysis } from "@/ai/flows/investment-analysis";
+// import { getMarketPrice } from "@/ai/flows/get-market-price";
+// import { networkAnalysis } from "@/ai/flows/network-analysis";
+// import { getExchangeAssets } from "@/ai/flows/get-exchange-assets";
+// import { addAssetToDB } from "@/ai/flows/manage-assets-db";
+// import { investmentAnalysis } from "@/ai/flows/investment-analysis";
 import { useToast } from "@/hooks/use-toast";
+// Busca a rede principal via API backend
+async function fetchMainNetworkAPI(exchange: string, asset: string): Promise<string> {
+  try {
+    const res = await fetch("/api/get-main-network", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ exchange, asset })
+    });
+    if (!res.ok) return "";
+    const data = await res.json();
+    return data.mainNetwork || "";
+  } catch {
+    return "";
+  }
+}
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
@@ -153,6 +168,10 @@ export default function ArbitrageCalculator() {
   const [isFetchingAssetsB, startFetchingAssetsBTransition] = useTransition();
   const { toast } = useToast();
 
+  // Mantido apenas a primeira ocorrência de cada estado
+
+  // Os hooks de efeito que dependem de exchangeA, exchangeB, assetA, assetB estão logo após a declaração desses estados
+
   const [priceA, setPriceA] = usePersistentState("priceA", "");
   const [priceB, setPriceB] = usePersistentState("priceB", "");
   const [initialInvestment, setInitialInvestment] = usePersistentState("initialInvestment", "100");
@@ -171,9 +190,51 @@ export default function ArbitrageCalculator() {
   const [assetsA, setAssetsA] = useState<string[]>([]);
   const [assetsB, setAssetsB] = useState<string[]>([]);
 
+  // Estados para armazenar a principal rede de cada exchange/ativo
+  const [mainNetworkA, setMainNetworkA] = useState<string>("");
+  const [mainNetworkB, setMainNetworkB] = useState<string>("");
+
+  // Atualiza a rede principal de cada exchange/ativo ao mudar ativo ou exchange
+  useEffect(() => {
+    async function fetchMainNetworkA() {
+      if (exchangeA && assetA) {
+        const net = await fetchMainNetworkAPI(exchangeA, assetA);
+        console.log(`[DEBUG] Rede principal de ${assetA} na ${exchangeA}:`, net);
+        setMainNetworkA(net);
+      } else {
+        setMainNetworkA("");
+      }
+    }
+    fetchMainNetworkA();
+  }, [exchangeA, assetA]);
+
+  useEffect(() => {
+    async function fetchMainNetworkB() {
+      if (exchangeB && assetB) {
+        const net = await fetchMainNetworkAPI(exchangeB, assetB);
+        console.log(`[DEBUG] Rede principal de ${assetB} na ${exchangeB}:`, net);
+        setMainNetworkB(net);
+      } else {
+        setMainNetworkB("");
+      }
+    }
+    fetchMainNetworkB();
+  }, [exchangeB, assetB]);
+
   const fetchAssets = useCallback((exchange: string, assetSetter: React.Dispatch<React.SetStateAction<string[]>>, startTransitionFunc: React.TransitionStartFunction) => {
     startTransitionFunc(() => {
-      getExchangeAssets({ exchange })
+      fetch("/api/get-exchange-assets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ exchange }),
+      })
+        .then(async (res) => {
+          if (!res.ok) {
+            const errorData = await res.json().catch(() => ({}));
+            throw new Error(errorData.error || `Erro HTTP ${res.status}`);
+          }
+          return res.json();
+        })
         .then(result => assetSetter(result.assets))
         .catch(error => {
           console.error(`Failed to fetch assets for ${exchange}:`, error);
@@ -320,7 +381,16 @@ export default function ArbitrageCalculator() {
               sourceExchange: exchangeA,
               destinationExchange: exchangeB,
             };
-            const result = await networkAnalysis(input);
+            const res = await fetch("/api/network-analysis", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(input),
+            });
+            if (!res.ok) {
+              const errorData = await res.json().catch(() => ({}));
+              throw new Error(errorData.error || `Erro HTTP ${res.status}`);
+            }
+            const result = await res.json();
             setNetworkAnalysisResult(result);
             resolve(result);
         } catch (error) {
@@ -349,7 +419,15 @@ export default function ArbitrageCalculator() {
   
     if (asset && !assetList.some(a => a.toUpperCase() === asset.toUpperCase())) {
       try {
-        await addAssetToDB({ exchange, asset });
+        const res = await fetch("/api/add-asset-to-db", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ exchange, asset }),
+        });
+        if (!res.ok) {
+          const errorData = await res.json().catch(() => ({}));
+          throw new Error(errorData.error || `Erro HTTP ${res.status}`);
+        }
         setAssetList(prevAssets => [...new Set([...prevAssets, asset.toUpperCase()])].sort());
         toast({
           title: "Novo Ativo Salvo!",
@@ -372,13 +450,23 @@ export default function ArbitrageCalculator() {
       setAiCommentary(null);
       
       try {
-        const [priceResultA, priceResultB] = await Promise.all([
-          getMarketPrice({ asset: assetA, exchange: exchangeA }),
-          getMarketPrice({ asset: assetB, exchange: exchangeB })
+        const fetchPrice = async (asset: string, exchange: string) => {
+          const res = await fetch("/api/get-market-price", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ asset, exchange }),
+          });
+          if (!res.ok) {
+            const errorData = await res.json().catch(() => ({}));
+            throw new Error(errorData.error || `Erro HTTP ${res.status}`);
+          }
+          const data = await res.json();
+          return data.price;
+        };
+        const [fetchedPriceA, fetchedPriceB] = await Promise.all([
+          fetchPrice(assetA, exchangeA),
+          fetchPrice(assetB, exchangeB)
         ]);
-
-        const fetchedPriceA = priceResultA;
-        const fetchedPriceB = priceResultB;
         
         let calculatedFactor = 1;
         if (fetchedPriceA > 0 && fetchedPriceB > 0) {
@@ -433,7 +521,16 @@ export default function ArbitrageCalculator() {
                 networkAnalysisResult: netAnalysisResult
               };
               try {
-                const { commentary } = await investmentAnalysis(investmentInput);
+                const res = await fetch("/api/investment-analysis", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify(investmentInput),
+                });
+                if (!res.ok) {
+                  const errorData = await res.json().catch(() => ({}));
+                  throw new Error(errorData.error || `Erro HTTP ${res.status}`);
+                }
+                const { commentary } = await res.json();
                 setAiCommentary(commentary);
               } catch(error) {
                  console.error("Investment analysis failed:", error);
@@ -507,7 +604,12 @@ export default function ArbitrageCalculator() {
                     />
                 </div>
                 <div className="grid gap-2">
-                    <Label className="text-xs" htmlFor="exchange-a">Exchange de Compra</Label>
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs" htmlFor="exchange-a">Exchange de Compra</Label>
+                      <span className="text-[10px] text-primary/80 bg-primary/10 px-2 py-0.5 rounded font-mono ml-2">
+                        Rede: {mainNetworkA || <span className="text-destructive">Não encontrada</span>}
+                      </span>
+                    </div>
                     <Select value={exchangeA} onValueChange={setExchangeA} disabled={isAnyLoading}>
                         <SelectTrigger id="exchange-a"><SelectValue /></SelectTrigger>
                         <SelectContent>{EXCHANGES.map(ex => <SelectItem key={ex} value={ex}>{ex}</SelectItem>)}</SelectContent>
@@ -545,7 +647,12 @@ export default function ArbitrageCalculator() {
                     />
                 </div>
                 <div className="grid gap-2">
-                    <Label className="text-xs" htmlFor="exchange-b">Exchange de Venda</Label>
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs" htmlFor="exchange-b">Exchange de Venda</Label>
+                      <span className="text-[10px] text-primary/80 bg-primary/10 px-2 py-0.5 rounded font-mono ml-2">
+                        Rede: {mainNetworkB || <span className="text-destructive">Não encontrada</span>}
+                      </span>
+                    </div>
                     <Select value={exchangeB} onValueChange={setExchangeB} disabled={isAnyLoading}>
                         <SelectTrigger id="exchange-b"><SelectValue /></SelectTrigger>
                         <SelectContent>{EXCHANGES.map(ex => <SelectItem key={ex} value={ex}>{ex}</SelectItem>)}</SelectContent>
