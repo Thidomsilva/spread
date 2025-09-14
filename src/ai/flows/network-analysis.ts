@@ -118,13 +118,26 @@ const networkAnalysisFlow = ai.defineFlow(
   },
   async (input) => {
     console.log(`Analisando compatibilidade de rede para ${input.asset} de ${input.sourceExchange} para ${input.destinationExchange}`);
+    const maxRetries = 3;
+    let attempt = 0;
 
-    const { output } = await networkAnalysisPrompt(input);
-
-    if (!output) {
-      throw new Error('A análise de rede da IA não retornou um resultado válido.');
+    while (attempt < maxRetries) {
+      try {
+        const { output } = await networkAnalysisPrompt(input);
+        if (!output) {
+          throw new Error('A análise de rede da IA não retornou um resultado válido.');
+        }
+        return output;
+      } catch (error: any) {
+        attempt++;
+        if (error.message.includes('503') && attempt < maxRetries) {
+          console.log(`Tentativa ${attempt} falhou com erro 503. Tentando novamente em ${attempt * 2}s...`);
+          await new Promise(resolve => setTimeout(resolve, attempt * 2000));
+        } else {
+          throw error;
+        }
+      }
     }
-    
-    return output;
+    throw new Error('A análise de rede falhou após múltiplas tentativas.');
   }
 );

@@ -103,15 +103,26 @@ const investmentAnalysisFlow = ai.defineFlow(
   },
   async (input) => {
     console.log(`IA analisando a operação de ${input.assetA} entre ${input.exchangeA} e ${input.exchangeB}`);
+    const maxRetries = 3;
+    let attempt = 0;
 
-    const { output } = await investmentAnalysisPrompt(input);
-
-    if (!output) {
-      throw new Error('A análise de investimento da IA não retornou um resultado válido.');
+    while (attempt < maxRetries) {
+      try {
+        const { output } = await investmentAnalysisPrompt(input);
+        if (!output) {
+          throw new Error('A análise de investimento da IA não retornou um resultado válido.');
+        }
+        return output;
+      } catch (error: any) {
+        attempt++;
+        if (error.message.includes('503') && attempt < maxRetries) {
+          console.log(`Tentativa ${attempt} falhou com erro 503. Tentando novamente em ${attempt * 2}s...`);
+          await new Promise(resolve => setTimeout(resolve, attempt * 2000));
+        } else {
+          throw error;
+        }
+      }
     }
-    
-    return output;
+    throw new Error('A análise de investimento falhou após múltiplas tentativas.');
   }
 );
-
-    
