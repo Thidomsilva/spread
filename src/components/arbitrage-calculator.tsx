@@ -171,7 +171,7 @@ export default function ArbitrageCalculator() {
   const [assetsA, setAssetsA] = useState<string[]>([]);
   const [assetsB, setAssetsB] = useState<string[]>([]);
 
-  const fetchAssets = useCallback(async (exchange: string, assetSetter: React.Dispatch<React.SetStateAction<string[]>>, startTransitionFunc: React.TransitionStartFunction) => {
+  const fetchAssets = useCallback((exchange: string, assetSetter: React.Dispatch<React.SetStateAction<string[]>>, startTransitionFunc: React.TransitionStartFunction) => {
     startTransitionFunc(() => {
       getExchangeAssets({ exchange })
         .then(result => assetSetter(result.assets))
@@ -201,7 +201,7 @@ export default function ArbitrageCalculator() {
 
 
   const formatNumber = (num: number, minDigits = 2, maxDigits = 4) => {
-    if (isNaN(num)) return '0';
+    if (isNaN(num) || !isFinite(num)) return '0.00';
     return num.toLocaleString('en-US', {
       minimumFractionDigits: minDigits,
       maximumFractionDigits: maxDigits,
@@ -216,7 +216,7 @@ export default function ArbitrageCalculator() {
     const feeA = parseFloat(tradeFeeA) / 100;
     const feeB = parseFloat(tradeFeeB) / 100;
 
-    if (isNaN(pA) || isNaN(pB) || pA <= 0 || pB <= 0 || isNaN(initialUSDTValue) || initialUSDTValue <=0 || isNaN(factor) || factor <= 0) {
+    if (isNaN(pA) || isNaN(pB) || isNaN(factor) || isNaN(initialUSDTValue) || initialUSDTValue <= 0 || pA <= 0 || pB <= 0 || factor <= 0) {
       return null;
     }
     
@@ -291,11 +291,24 @@ export default function ArbitrageCalculator() {
             return;
         }
 
-        if (exchangeA === exchangeB) {
+        // Se a arbitragem for de um ativo para ele mesmo (A -> A), então a transferência de rede é relevante.
+        // Se for de A -> B, a transferência não ocorre, então não analisamos.
+        if (assetA !== assetB && exchangeA !== exchangeB) {
             const analysisResult = {
               isCompatible: false,
               commonNetworks: [],
-              reasoning: "A arbitragem ocorre na mesma exchange, não há transferência de rede."
+              reasoning: "Operação de swap (A->B) em exchanges diferentes não envolve transferência de rede."
+            };
+            setNetworkAnalysisResult(analysisResult);
+            resolve(analysisResult);
+            return;
+        }
+
+        if (exchangeA === exchangeB) {
+            const analysisResult = {
+              isCompatible: true, // Sempre compatível na mesma exchange
+              commonNetworks: [],
+              reasoning: "A operação ocorre na mesma exchange, não há necessidade de transferência de rede externa."
             };
             setNetworkAnalysisResult(analysisResult);
             resolve(analysisResult);
@@ -327,11 +340,10 @@ export default function ArbitrageCalculator() {
         }
         });
     });
-  }, [assetA, exchangeA, exchangeB, toast]);
+  }, [assetA, assetB, exchangeA, exchangeB, toast]);
   
 
   const addNewAssetToDB = useCallback(async (exchange: string, asset: string) => {
-    // Determine which asset list to check based on the exchange
     const assetList = exchange === exchangeA ? assetsA : assetsB;
     const setAssetList = exchange === exchangeA ? setAssetsA : setAssetsB;
   
@@ -344,7 +356,6 @@ export default function ArbitrageCalculator() {
           description: `${asset.toUpperCase()} foi adicionado à lista da ${exchange}.`,
         });
       } catch (error) {
-        // Silently fail to avoid interrupting the user flow
         console.error(`Falha ao salvar o novo ativo ${asset} no DB:`, error);
       }
     }
@@ -369,10 +380,10 @@ export default function ArbitrageCalculator() {
         const fetchedPriceA = priceResultA;
         const fetchedPriceB = priceResultB;
         
-        // Auto-calculate conversion factor
+        let calculatedFactor = 1;
         if (fetchedPriceA > 0 && fetchedPriceB > 0) {
-            const factor = fetchedPriceA / fetchedPriceB;
-            setConversionFactor(factor.toString());
+            calculatedFactor = fetchedPriceA / fetchedPriceB;
+            setConversionFactor(calculatedFactor.toString());
         }
 
         const fees: Record<string, number> = { 'MEXC': 0.1, 'Bitmart': 0.1, 'Gate.io': 0.2, 'Poloniex': 0.14 };
@@ -392,7 +403,7 @@ export default function ArbitrageCalculator() {
         const tempCalculationResults = (() => {
             const pA = fetchedPriceA;
             const pB = fetchedPriceB;
-            const fact = (pA > 0 && pB > 0) ? pA / pB : parseFloat(conversionFactor);
+            const fact = calculatedFactor;
             const initialUSDT = parseFloat(initialInvestment);
             const tFeeA = fetchedFeeA / 100;
             const tFeeB = fetchedFeeB / 100;
@@ -444,7 +455,7 @@ export default function ArbitrageCalculator() {
   }, [
     assetA, assetB, exchangeA, exchangeB, toast, isFetchingRealPrice, 
     setPriceA, setPriceB, setTradeFeeA, setTradeFeeB, handleNetworkAnalysis, initialInvestment,
-    addNewAssetToDB, conversionFactor, setConversionFactor
+    addNewAssetToDB, setConversionFactor
   ]);
   
   const diagnosisStyles = {

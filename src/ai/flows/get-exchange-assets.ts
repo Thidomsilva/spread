@@ -40,10 +40,6 @@ const getExchangeAssetsFlow = ai.defineFlow(
     outputSchema: GetExchangeAssetsOutputSchema,
   },
   async (input) => {
-    console.log(
-      `Buscando todos os ativos para a exchange ${input.exchange}`
-    );
-
     // 1. Define a lista de fallback simulada PRIMEIRO para garantir uma resposta rápida.
     const simulatedAssetDb: Record<string, string[]> = {
         MEXC: ['JASMY', 'PEPE', 'BTC', 'ETH', 'SOL', 'DOGE', 'SHIB', 'MATIC', 'AVAX', 'LINK'],
@@ -58,16 +54,15 @@ const getExchangeAssetsFlow = ai.defineFlow(
     (async () => {
       try {
         const dbAssets = await getAssetsFromDB({ exchange: input.exchange });
-        if (dbAssets.assets.length === 0 && localAssets.length > 0) {
-            console.log(`Banco de dados para ${input.exchange} está vazio. Tentando salvar a lista local...`);
-            // Se o DB estiver vazio, salva a lista local nele.
+        // Se a lista do DB tiver menos ativos que a local, podemos assumir que a local é mais completa ou inicial.
+        // E salvamos a lista local para popular o banco.
+        if (dbAssets.assets.length < localAssets.length) {
+            console.log(`Banco de dados para ${input.exchange} está incompleto. Tentando salvar a lista local...`);
             for (const asset of localAssets) {
                 // addAssetToDB já contém a lógica para não duplicar.
                 await addAssetToDB({ exchange: input.exchange, asset });
             }
-            console.log(`Lista de ativos simulados para ${input.exchange} salva no Firestore em segundo plano.`);
-        } else {
-            console.log(`Ativos para ${input.exchange} já existem no DB ou a lista local está vazia. Nenhuma ação necessária.`);
+            console.log(`Lista de ativos simulados para ${input.exchange} mesclada ao Firestore em segundo plano.`);
         }
       } catch (error) {
           console.error(`Erro ao verificar/salvar ativos no Firestore em segundo plano para ${input.exchange}:`, error);
