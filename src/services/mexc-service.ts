@@ -50,10 +50,14 @@ export async function getMexcPrice(
   } catch (error) {
     console.error(`Falha ao buscar o preço da MEXC para ${pair}:`, error);
     if (error instanceof Error) {
+        // Handle generic fetch error with a more descriptive message
+        if (error.message.includes('fetch failed')) {
+            throw new Error(`Não foi possível conectar à API da MEXC para o par ${pair}. Verifique a conexão do servidor ou se a API da exchange está online.`);
+        }
         throw error;
     }
     throw new Error(
-      'Não foi possível conectar à API da MEXC. Verifique a conexão de rede.'
+      'Ocorreu um erro desconhecido ao buscar o preço da MEXC.'
     );
   }
 }
